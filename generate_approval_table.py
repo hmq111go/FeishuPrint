@@ -55,6 +55,8 @@ def get_signature_image_path(employee_name: str) -> str:
     else:
         print(f"警告: 未找到员工 {employee_name} 的签名图片: {image_path}")
         return None
+
+def load_employee_mapping() -> Dict[str, str]:
     """加载员工映射文件"""
     try:
         mapping_file_path = os.path.join(os.path.dirname(__file__), "employee_mapping.json")
@@ -66,6 +68,59 @@ def get_signature_image_path(employee_name: str) -> str:
 
 def get_approval_definition(tenant_token: str, approval_code: str) -> Dict[str, Any]:
     """获取审批定义信息"""
+    url = f"https://open.feishu.cn/open-apis/approval/v4/approvals/{approval_code}"
+    headers = {
+        "Authorization": f"Bearer {tenant_token}",
+        "Content-Type": "application/json; charset=utf-8",
+    }
+    print(f"GET: {url}")
+    response = requests.get(url, headers=headers, timeout=20)
+    response.raise_for_status()
+    result = response.json()
+    print(f"Response: {json.dumps(result, ensure_ascii=False)}")
+    if result.get("code", 0) != 0:
+        raise RuntimeError(
+            f"Feishu error fetching approval definition: code={result.get('code')} msg={result.get('msg')}"
+        )
+    return result.get("data", {})
+def create_wrapped_text(text: str, font_name: str = "Helvetica", font_size: int = 9) -> Paragraph:
+    """创建支持自动换行的文本段落"""
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+
+    styles = getSampleStyleSheet()
+    style = styles["Normal"]
+    # 使用安全的字体设置
+    try:
+        style.fontName = "Helvetica"
+    except:
+        style.fontName = "Helvetica"
+    style.alignment = 1  # 居中对齐
+    style.textColor = colors.black
+
+    # 处理换行符和长文本
+    wrapped_text = text.replace("\n", "<br/>")
+    return Paragraph(wrapped_text, style)
+    """获取审批定义信息"""
+
+def process_table_data_for_pdf(table_data: List[List[str]]) -> List[List]:
+    """处理表格数据，将文本转换为支持换行的Paragraph"""
+    processed_data = []
+
+    for i, row in enumerate(table_data):
+        processed_row = []
+        for j, cell in enumerate(row):
+            if i == 0:  # 标题行
+                processed_row.append(cell)
+            else:  # 数据行
+                if isinstance(cell, str):
+                    # 将文本转换为Paragraph以支持自动换行
+                    processed_row.append(create_wrapped_text(cell))
+                else:
+                    processed_row.append(cell)
+        processed_data.append(processed_row)
+
+    return processed_data
     url = f"https://open.feishu.cn/open-apis/approval/v4/approvals/{approval_code}"
     headers = {"Authorization": f"Bearer {tenant_token}"}
 
@@ -269,23 +324,61 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
         # 尝试注册系统中文字体
         font_paths = [
             "/System/Library/Fonts/PingFang.ttc",  # macOS
-            "/System/Library/Fonts/Helvetica.ttc",  # macOS
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Linux
+            "/System/Library/Fonts/STHeiti Light.ttc",  # macOS
+            "/System/Library/Fonts/STHeiti Medium.ttc",  # macOS
+            "/System/Library/Fonts/Hiragino Sans GB.ttc",  # macOS
+            "/Library/Fonts/Arial Unicode.ttf",  # macOS
+            "/usr/share/fonts/truetype/arphic/uming.ttc",  # Linux
+            "/usr/share/fonts/truetype/arphic/ukai.ttc",  # Linux
+            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",  # Linux
             "C:/Windows/Fonts/simsun.ttc",  # Windows
+            "C:/Windows/Fonts/simhei.ttf",  # Windows
             "C:/Windows/Fonts/msyh.ttc",  # Windows
+            "C:/Windows/Fonts/simfang.ttf",  # Windows
         ]
+        
+        # 添加当前目录下的字体文件
+        current_dir = os.path.dirname(__file__)
+        for font_file in os.listdir(current_dir):
+            if font_file.endswith('.ttf') or font_file.endswith('.ttc'):
+                font_paths.append(os.path.join(current_dir, font_file))
         
         chinese_font_registered = False
         for font_path in font_paths:
             if os.path.exists(font_path):
                 try:
-                    pdfmetrics.registerFont(TTFont("ChineseFont", font_path))
+                    # 对于ttc文件，尝试注册第一个字体
+                    if font_path.endswith('.ttc'):
+                        pdfmetrics.registerFont(TTFont("ChineseFont", font_path, subfontIndex=0))
+                    else:
+                        pdfmetrics.registerFont(TTFont("ChineseFont", font_path))
                     chinese_font_registered = True
                     print(f"成功注册中文字体: {font_path}")
                     break
                 except Exception as e:
                     print(f"注册字体失败 {font_path}: {e}")
                     continue
+        
+        if not chinese_font_registered:
+            # 如果无法注册系统字体，尝试下载并使用开源中文字体
+            try:
+                import urllib.request
+                import tempfile
+                
+                print("尝试下载开源中文字体...")
+                font_url = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf"
+                temp_dir = tempfile.gettempdir()
+                font_path = os.path.join(temp_dir, "NotoSansSC-Regular.otf")
+                
+                if not os.path.exists(font_path):
+                    urllib.request.urlretrieve(font_url, font_path)
+                    print(f"字体已下载到: {font_path}")
+                
+                pdfmetrics.registerFont(TTFont("ChineseFont", font_path))
+                chinese_font_registered = True
+                print(f"成功注册下载的中文字体")
+            except Exception as e:
+                print(f"下载并注册字体失败: {e}")
         
         if not chinese_font_registered:
             print("警告: 未能注册中文字体，中文可能显示为方块")
@@ -350,16 +443,16 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
             ['完成时间', detail.get('end_time_formatted', 'N/A')]
         ]
         
-        basic_table = Table(basic_info, colWidths=[3*cm, 8*cm])
+        basic_table = Table(process_table_data_for_pdf(basic_info), colWidths=[3*cm, 8*cm])
         basic_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ("FONTNAME", (0, 0), (-1, 0), "ChineseFont"),
                 ("FONTNAME", (0, 1), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-            ('BACKGROUND', (1, 0), (1, -1), colors.beige),
+            ('BACKGROUND', (1, 0), (1, -1), colors.white),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
         
@@ -371,7 +464,7 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
             story.append(Paragraph("采购明细", heading_style))
             
             # 明细表格标题
-            detail_headers = ['序号', '商品名称', '规格型号', '数量', '单位', '单价(元)', '金额(元)', '供应商', '请购理由', '需求人']
+            detail_headers = ['序号', '商品名称', '规格型号', '数量', '单位', '单价(元)', '金额(元)', '请购理由', '需求人']
             detail_data = [detail_headers]
             
             # 添加明细数据
@@ -384,13 +477,12 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                     item.get('单位', ''),
                     str(item.get('单价', '')),
                     str(item.get('金额', '')),
-                    item.get('购买链接/供应商', ''),
                     item.get('请购理由', ''),
                     item.get('需求人', '')
                 ]
                 detail_data.append(row)
             
-            detail_table = Table(detail_data, colWidths=[0.8*cm, 2.5*cm, 2*cm, 0.8*cm, 0.8*cm, 1.2*cm, 1.2*cm, 2*cm, 1.5*cm, 1*cm])
+            detail_table = Table(process_table_data_for_pdf(detail_data), colWidths=[0.8*cm, 2.5*cm, 2*cm, 0.8*cm, 0.8*cm, 1.2*cm, 1.2*cm, 2*cm, 1.5*cm, 1*cm])
             detail_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -399,7 +491,7 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                 ("FONTNAME", (0, 1), (-1, -1), "ChineseFont"),
                 ('FONTSIZE', (0, 0), (-1, 0), 9),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "ChineseFont"),
                 ("FONTNAME", (0, 1), (-1, -1), "ChineseFont"),
                 ('FONTSIZE', (0, 1), (-1, -1), 8),
@@ -421,14 +513,14 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
             for row in detail['timeline_table']:
                 timeline_data.append(row)            # 修改表格数据，将处理人姓名替换为签名图片
             modified_timeline_data = []
-            for row in timeline_data:
-                if len(row) >= 3:  # 确保有足够的列
+            for i, row in enumerate(timeline_data):
+                if i > 0 and len(row) >= 3:  # 确保有足够的列
                     processor_name = row[2]  # 处理人姓名
                     signature_path = get_signature_image_path(processor_name)
                     if signature_path:
                         # 创建签名图片，调整大小
                         try:
-                            signature_img = Image(signature_path, width=1.5*cm, height=0.8*cm)
+                            signature_img = Image(signature_path, width=2.5*cm, height=1*cm)
                             # 替换处理人姓名为图片
                             modified_row = row[:2] + [signature_img] + row[3:]
                             modified_timeline_data.append(modified_row)
@@ -440,7 +532,7 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                 else:
                     modified_timeline_data.append(row)
             
-            timeline_table = Table(timeline_data, colWidths=[1*cm, 2.5*cm, 2*cm, 2.5*cm, 3*cm])
+            timeline_table = Table(process_table_data_for_pdf(modified_timeline_data), colWidths=[1*cm, 2.5*cm, 3*cm, 2.5*cm, 3*cm])
             timeline_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -449,7 +541,7 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                 ("FONTNAME", (0, 1), (-1, -1), "ChineseFont"),
                 ('FONTSIZE', (0, 0), (-1, 0), 9),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "ChineseFont"),
                 ("FONTNAME", (0, 1), (-1, -1), "ChineseFont"),
                 ('FONTSIZE', (0, 1), (-1, -1), 9),

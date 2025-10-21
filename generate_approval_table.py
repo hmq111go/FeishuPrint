@@ -8,27 +8,26 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Union
 
 import requests
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+
 from feishu_approval_fetch import (
     request_tenant_access_token,
     list_approval_instance_ids,
     fetch_approval_instance_detail,
     resolve_user_name_from_user_id,
-    safe_format_ms,
     LOCAL_TZ,
     APP_ID,
     APP_SECRET,
     APPROVAL_CODE
 )
+
 
 def load_employee_mapping() -> Dict[str, str]:
     """加载员工映射文件"""
@@ -40,15 +39,16 @@ def load_employee_mapping() -> Dict[str, str]:
         print(f"加载员工映射文件失败: {e}")
         return {}
 
+
 def get_signature_image_path(employee_name: str) -> str:
     """获取员工签名图片路径"""
     if not employee_name or employee_name == "未知用户":
         return None
-    
+
     # 构建图片文件路径
     image_filename = f"{employee_name}.png"
     image_path = os.path.join(os.path.dirname(__file__), image_filename)
-    
+
     # 检查文件是否存在
     if os.path.exists(image_path):
         return image_path
@@ -56,6 +56,7 @@ def get_signature_image_path(employee_name: str) -> str:
         print(f"警告: 未找到员工 {employee_name} 的签名图片: {image_path}")
         return None
 
+
 def load_employee_mapping() -> Dict[str, str]:
     """加载员工映射文件"""
     try:
@@ -65,6 +66,7 @@ def load_employee_mapping() -> Dict[str, str]:
     except Exception as e:
         print(f"加载员工映射文件失败: {e}")
         return {}
+
 
 def get_approval_definition(tenant_token: str, approval_code: str) -> Dict[str, Any]:
     """获取审批定义信息"""
@@ -83,6 +85,8 @@ def get_approval_definition(tenant_token: str, approval_code: str) -> Dict[str, 
             f"Feishu error fetching approval definition: code={result.get('code')} msg={result.get('msg')}"
         )
     return result.get("data", {})
+
+
 def create_wrapped_text(text: str, font_name: str = "ChineseFont", font_size: int = 9) -> Paragraph:
     """创建支持自动换行的文本段落"""
     from reportlab.lib.styles import getSampleStyleSheet
@@ -91,14 +95,14 @@ def create_wrapped_text(text: str, font_name: str = "ChineseFont", font_size: in
 
     styles = getSampleStyleSheet()
     style = styles["Normal"]
-    
+
     # 检查中文字体是否已注册
     registered_fonts = pdfmetrics.getRegisteredFontNames()
     if "ChineseFont" in registered_fonts and font_name == "ChineseFont":
         style.fontName = "ChineseFont"  # 使用中文字体
     else:
         style.fontName = "Helvetica"  # 使用安全的默认字体
-    
+
     style.fontSize = font_size
     style.alignment = 1  # 居中对齐
     style.textColor = colors.black
@@ -108,34 +112,25 @@ def create_wrapped_text(text: str, font_name: str = "ChineseFont", font_size: in
     return Paragraph(wrapped_text, style)
     """获取审批定义信息"""
 
-def process_table_data_for_pdf(table_data: List[List[str]]) -> List[List]:
-    """处理表格数据，将文本转换为支持换行的Paragraph"""
-    processed_data = []
 
+from reportlab.platypus import Image as RLImage  # 避免名字冲突
+
+
+def process_table_data_for_pdf(table_data: List[List[Any]]) -> List[List[Any]]:
+    """把字符串换成 Paragraph，其它（Image/Paragraph）保持原样"""
+    processed = []
     for i, row in enumerate(table_data):
-        processed_row = []
-        for j, cell in enumerate(row):
-            if i == 0:  # 标题行
-                processed_row.append(cell)
-            else:  # 数据行
-                if isinstance(cell, str):
-                    # 将文本转换为Paragraph以支持自动换行
-                    processed_row.append(create_wrapped_text(cell))
-                else:
-                    processed_row.append(cell)
-        processed_data.append(processed_row)
+        new_row = []
+        for cell in row:
+            if isinstance(cell, str):
+                new_row.append(create_wrapped_text(cell))
+            elif isinstance(cell, RLImage):
+                new_row.append(cell)  # 原样保留
+            else:
+                new_row.append(cell)  # 已经是 Paragraph 或其它
+        processed.append(new_row)
+    return processed
 
-    return processed_data
-    url = f"https://open.feishu.cn/open-apis/approval/v4/approvals/{approval_code}"
-    headers = {"Authorization": f"Bearer {tenant_token}"}
-
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        return response.json().get("data", {})
-    except Exception as e:
-        print(f"获取审批定义失败: {e}")
-        return {}
 
 def get_node_name_mapping(tenant_token: str, approval_code: str) -> Dict[str, str]:
     """获取节点ID到节点名称的映射"""
@@ -151,6 +146,7 @@ def get_node_name_mapping(tenant_token: str, approval_code: str) -> Dict[str, st
 
     return mapping
 
+
 def format_time_without_timezone(value: Union[str, int, float, None], tz: timezone) -> str:
     """格式化时间，不显示时区信息"""
     try:
@@ -163,12 +159,13 @@ def format_time_without_timezone(value: Union[str, int, float, None], tz: timezo
         else:
             ms = int(value)
         # Treat values with >=13 digits as milliseconds
-        if ms < 10**12:
+        if ms < 10 ** 12:
             return ""  # likely seconds or smaller numbers we don't format here
         dt = datetime.fromtimestamp(ms / 1000.0, tz)
         return dt.strftime("%Y-%m-%d %H:%M:%S")
     except Exception:
         return ""
+
 
 def get_department_name(tenant_token: str, department_id: str) -> str:
     """根据部门ID获取部门名称"""
@@ -192,6 +189,7 @@ def get_department_name(tenant_token: str, department_id: str) -> str:
         print(f"获取部门信息失败 ({department_id}): {e}")
 
     return "未知部门"
+
 
 def parse_form_data(form_json: str) -> Dict[str, Any]:
     """解析表单数据"""
@@ -225,6 +223,7 @@ def parse_form_data(form_json: str) -> Dict[str, Any]:
         print(f"解析表单数据失败: {e}")
         return {}
 
+
 def get_node_name_from_task_list(task_list: List[Dict[str, Any]], node_id: str) -> str:
     """从任务列表中获取节点名称"""
     for task in task_list:
@@ -232,7 +231,9 @@ def get_node_name_from_task_list(task_list: List[Dict[str, Any]], node_id: str) 
             return task.get('node_name', '未知节点')
     return '未知节点'
 
-def format_timeline_table(timeline: List[Dict[str, Any]], task_list: List[Dict[str, Any]], employee_mapping: Dict[str, str], node_name_mapping: Dict[str, str]) -> List[List[str]]:
+
+def format_timeline_table(timeline: List[Dict[str, Any]], task_list: List[Dict[str, Any]],
+                          employee_mapping: Dict[str, str], node_name_mapping: Dict[str, str]) -> List[List[str]]:
     """格式化审批时间线为表格格式"""
     table_data = []
 
@@ -323,13 +324,14 @@ def format_timeline_table(timeline: List[Dict[str, Any]], task_list: List[Dict[s
 
     return table_data
 
+
 def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, output_filename: str = None):
     # 注册中文字体
     try:
         # 导入必要的模块
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-        
+
         # 尝试注册系统中文字体
         font_paths = [
             "/System/Library/Fonts/PingFang.ttc",  # macOS
@@ -345,13 +347,13 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
             "C:/Windows/Fonts/msyh.ttc",  # Windows
             "C:/Windows/Fonts/simfang.ttf",  # Windows
         ]
-        
+
         # 添加当前目录下的字体文件
         current_dir = os.path.dirname(__file__)
         for font_file in os.listdir(current_dir):
             if font_file.endswith('.ttf') or font_file.endswith('.ttc'):
                 font_paths.append(os.path.join(current_dir, font_file))
-        
+
         # 检查字体是否已注册
         registered_fonts = pdfmetrics.getRegisteredFontNames()
         if "ChineseFont" in registered_fonts:
@@ -373,28 +375,28 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                     except Exception as e:
                         print(f"注册字体失败 {font_path}: {e}")
                         continue
-        
+
         if not chinese_font_registered:
             # 如果无法注册系统字体，尝试下载并使用开源中文字体
             try:
                 import urllib.request
                 import tempfile
-                
+
                 print("尝试下载开源中文字体...")
                 font_url = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf"
                 temp_dir = tempfile.gettempdir()
                 font_path = os.path.join(temp_dir, "NotoSansSC-Regular.otf")
-                
+
                 if not os.path.exists(font_path):
                     urllib.request.urlretrieve(font_url, font_path)
                     print(f"字体已下载到: {font_path}")
-                
+
                 pdfmetrics.registerFont(TTFont("ChineseFont", font_path))
                 chinese_font_registered = True
                 print(f"成功注册下载的中文字体")
             except Exception as e:
                 print(f"下载并注册字体失败: {e}")
-        
+
         # 注册字体映射，确保中文字体能够正确应用
         if chinese_font_registered:
             # 创建字体映射，确保中文字体能够正确应用
@@ -406,14 +408,14 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
     """生成PDF格式的审批报告"""
     if output_filename is None:
         output_filename = f"审批报告_{query_date}.pdf"
-    
+
     # 创建PDF文档
     doc = SimpleDocTemplate(output_filename, pagesize=A4)
     story = []
-    
+
     # 获取样式
     styles = getSampleStyleSheet()
-    
+
     # 创建自定义样式
     title_style = ParagraphStyle(
         'CustomTitle',
@@ -424,7 +426,7 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
         textColor=colors.darkblue,
         fontName="ChineseFont"
     )
-    
+
     heading_style = ParagraphStyle(
         'CustomHeading',
         parent=styles['Heading2'],
@@ -434,7 +436,7 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
         textColor=colors.darkblue,
         fontName="ChineseFont"
     )
-    
+
     normal_style = ParagraphStyle(
         'CustomNormal',
         parent=styles['Normal'],
@@ -442,17 +444,17 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
         spaceAfter=6,
         fontName="ChineseFont"
     )
-    
+
     # 添加标题
     story.append(Paragraph(f"采购申请审批报告", title_style))
     story.append(Paragraph(f"查询日期: {query_date}", normal_style))
     story.append(Spacer(1, 20))
-    
+
     # 遍历每个审批实例
     for i, detail in enumerate(approval_data, 1):
         # 审批基本信息
         story.append(Paragraph(f"【{i}】{detail.get('approval_name', 'N/A')}", heading_style))
-        
+
         # 基本信息表格
         basic_info = [
             ['申请单号', detail.get('serial_number', 'N/A')],
@@ -461,31 +463,32 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
             ['申请时间', detail.get('start_time_formatted', 'N/A')],
             ['完成时间', detail.get('end_time_formatted', 'N/A')]
         ]
-        
-        basic_table = Table(process_table_data_for_pdf(basic_info), colWidths=[3*cm, 8*cm])
+
+        basic_table = Table(process_table_data_for_pdf(basic_info), colWidths=[3 * cm, 8 * cm])
         basic_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ("FONTNAME", (0, 0), (-1, 0), "ChineseFont"),
-                ("FONTNAME", (0, 1), (-1, -1), "ChineseFont"),
+            ("FONTNAME", (0, 0), (-1, 0), "ChineseFont"),
+            ("FONTNAME", (0, 1), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
             ('BACKGROUND', (1, 0), (1, -1), colors.white),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
-        
+
         story.append(basic_table)
         story.append(Spacer(1, 15))
-        
+
         # 采购明细
         if 'expense_details' in detail and detail['expense_details']:
             story.append(Paragraph("采购明细", heading_style))
-            
+
             # 明细表格标题
-            detail_headers = ['序号', '商品名称', '规格型号', '数量', '单位', '单价(元)', '金额(元)', '请购理由', '需求人']
+            detail_headers = ['序号', '商品名称', '规格型号', '数量', '单位', '单价(元)', '金额(元)', '请购理由',
+                              '需求人']
             detail_data = [detail_headers]
-            
+
             # 添加明细数据
             for idx, item in enumerate(detail['expense_details'], 1):
                 row = [
@@ -500,8 +503,10 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                     item.get('需求人', '')
                 ]
                 detail_data.append(row)
-            
-            detail_table = Table(process_table_data_for_pdf(detail_data), colWidths=[0.8*cm, 2.5*cm, 2*cm, 0.8*cm, 0.8*cm, 1.2*cm, 1.2*cm, 2*cm, 1.5*cm, 1*cm])
+
+            detail_table = Table(process_table_data_for_pdf(detail_data),
+                                 colWidths=[0.8 * cm, 2.5 * cm, 2 * cm, 0.8 * cm, 0.8 * cm, 1.2 * cm, 1.2 * cm, 2 * cm,
+                                            1.5 * cm, 1 * cm])
             detail_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -517,20 +522,20 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ]))
-            
+
             story.append(detail_table)
             story.append(Spacer(1, 15))
-        
+
         # 审批进程
         if 'timeline_table' in detail and detail['timeline_table']:
             story.append(Paragraph("审批进程", heading_style))
-            
+
             # 审批进程表格
             timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
             timeline_data = [timeline_headers]
-            
+
             for row in detail['timeline_table']:
-                timeline_data.append(row)            # 修改表格数据，将处理人姓名替换为签名图片
+                timeline_data.append(row)  # 修改表格数据，将处理人姓名替换为签名图片
             modified_timeline_data = []
             for i, row in enumerate(timeline_data):
                 if i > 0 and len(row) >= 3:  # 确保有足够的列
@@ -539,7 +544,7 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                     if signature_path:
                         # 创建签名图片，调整大小
                         try:
-                            signature_img = Image(signature_path, width=2.5*cm, height=1*cm)
+                            signature_img = Image(signature_path, width=2.5 * cm, height=1 * cm)
                             # 替换处理人姓名为图片
                             modified_row = row[:2] + [signature_img] + row[3:]
                             modified_timeline_data.append(modified_row)
@@ -550,8 +555,9 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                         modified_timeline_data.append(row)
                 else:
                     modified_timeline_data.append(row)
-            
-            timeline_table = Table(process_table_data_for_pdf(modified_timeline_data), colWidths=[1*cm, 2.5*cm, 3*cm, 2.5*cm, 3*cm])
+
+            timeline_table = Table(process_table_data_for_pdf(modified_timeline_data),
+                                   colWidths=[1 * cm, 2.5 * cm, 3 * cm, 2.5 * cm, 3 * cm])
             timeline_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -567,17 +573,18 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ]))
-            
+
             story.append(timeline_table)
-        
+
         # 如果不是最后一个实例，添加分页符
         if i < len(approval_data):
             story.append(PageBreak())
-    
+
     # 生成PDF
     doc.build(story)
     print(f"PDF报告已生成: {output_filename}")
     return output_filename
+
 
 def generate_approval_report(query_date: str = "2025-10-17"):
     """生成审批报告"""
@@ -611,7 +618,7 @@ def generate_approval_report(query_date: str = "2025-10-17"):
 
             approved_count += 1
 
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print(f"【{approved_count}】{detail.get('approval_name', 'N/A')}")
             print(f"申请单号: {detail.get('serial_number', 'N/A')}")
             print(f"申请人: {resolve_user_name_from_user_id(detail.get('open_id', ''))}")
@@ -682,13 +689,14 @@ def generate_approval_report(query_date: str = "2025-10-17"):
     print(f"\n=== 统计 ===")
     print(f"总共找到 {len(instance_ids)} 个审批实例")
     print(f"其中审批通过的有 {approved_count} 个")
-    
+
     # 生成PDF
     if approval_data:
         pdf_filename = generate_pdf_report(approval_data, query_date)
         print(f"PDF报告已生成: {pdf_filename}")
-    
+
     return approval_data
+
 
 def main():
     """主函数"""
@@ -698,6 +706,7 @@ def main():
         query_date = "2025-10-15"  # 默认查询日期
 
     generate_approval_report(query_date)
+
 
 if __name__ == "__main__":
     main()

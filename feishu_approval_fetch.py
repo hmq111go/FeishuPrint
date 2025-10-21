@@ -307,6 +307,68 @@ def resolve_user_name_from_user_id(user_id: str) -> str:
         return "未知用户"
 
 
+def get_signature_image_path(user_name: str) -> str:
+    """Get the signature image path for a user name.
+    
+    Returns the image path if found, otherwise returns the user name.
+    """
+    if not user_name or user_name == "未知用户":
+        return user_name
+    
+    try:
+        # Load the signature mapping JSON file
+        mapping_file_path = os.path.join(os.path.dirname(__file__), "signature_mapping.json")
+        with open(mapping_file_path, 'r', encoding='utf-8') as f:
+            signature_mapping = json.load(f)
+        
+        # Check if user has signature image
+        if user_name in signature_mapping:
+            image_filename = signature_mapping[user_name]
+            image_path = os.path.join(os.path.dirname(__file__), image_filename)
+            if os.path.exists(image_path):
+                return f"[签名图片: {image_filename}]"
+        
+        return user_name
+    except Exception:
+        return user_name
+
+
+def display_signature_ascii(image_path: str, width: int = 40) -> str:
+    """Convert image to ASCII art for terminal display.
+    
+    This is a simplified version that returns a placeholder.
+    For full functionality, you would need PIL/Pillow library.
+    """
+    try:
+        # Check if PIL is available
+        from PIL import Image
+        import numpy as np
+        
+        # Load and resize image
+        img = Image.open(image_path)
+        img = img.convert('L')  # Convert to grayscale
+        img = img.resize((width, width // 2))  # Resize for terminal
+        
+        # Convert to numpy array
+        img_array = np.array(img)
+        
+        # ASCII characters from dark to light
+        ascii_chars = "@%#*+=-:. "
+        
+        # Convert to ASCII
+        ascii_art = ""
+        for row in img_array:
+            for pixel in row:
+                ascii_art += ascii_chars[pixel // 32]
+            ascii_art += "\n"
+        
+        return ascii_art
+    except ImportError:
+        return f"[需要安装PIL库来显示ASCII签名: {os.path.basename(image_path)}]"
+    except Exception:
+        return f"[无法显示签名图片: {os.path.basename(image_path)}]"
+
+
 def resolve_timeline_user_names(tenant_access_token: str, timeline: List[Dict[str, Any]]) -> None:
     print("\n=== 审批进程处理人信息 ===")
     for i, item in enumerate(timeline):
@@ -327,7 +389,9 @@ def resolve_timeline_user_names(tenant_access_token: str, timeline: List[Dict[st
         elif user_id:
             user_name = resolve_user_name_from_user_id(user_id)
 
-        print(f"处理人: {user_name}")
+        # Display signature instead of name if available
+        signature_display = get_signature_image_path(user_name)
+        print(f"处理人: {signature_display}")
         print(f"意见: {item.get('comment', 'N/A')}")
 
 

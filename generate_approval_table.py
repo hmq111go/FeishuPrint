@@ -83,18 +83,23 @@ def get_approval_definition(tenant_token: str, approval_code: str) -> Dict[str, 
             f"Feishu error fetching approval definition: code={result.get('code')} msg={result.get('msg')}"
         )
     return result.get("data", {})
-def create_wrapped_text(text: str, font_name: str = "Helvetica", font_size: int = 9) -> Paragraph:
+def create_wrapped_text(text: str, font_name: str = "ChineseFont", font_size: int = 9) -> Paragraph:
     """创建支持自动换行的文本段落"""
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
+    from reportlab.pdfbase import pdfmetrics
 
     styles = getSampleStyleSheet()
     style = styles["Normal"]
-    # 使用安全的字体设置
-    try:
-        style.fontName = "Helvetica"
-    except:
-        style.fontName = "Helvetica"
+    
+    # 检查中文字体是否已注册
+    registered_fonts = pdfmetrics.getRegisteredFontNames()
+    if "ChineseFont" in registered_fonts and font_name == "ChineseFont":
+        style.fontName = "ChineseFont"  # 使用中文字体
+    else:
+        style.fontName = "Helvetica"  # 使用安全的默认字体
+    
+    style.fontSize = font_size
     style.alignment = 1  # 居中对齐
     style.textColor = colors.black
 
@@ -321,6 +326,10 @@ def format_timeline_table(timeline: List[Dict[str, Any]], task_list: List[Dict[s
 def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, output_filename: str = None):
     # 注册中文字体
     try:
+        # 导入必要的模块
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        
         # 尝试注册系统中文字体
         font_paths = [
             "/System/Library/Fonts/PingFang.ttc",  # macOS
@@ -343,21 +352,27 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
             if font_file.endswith('.ttf') or font_file.endswith('.ttc'):
                 font_paths.append(os.path.join(current_dir, font_file))
         
-        chinese_font_registered = False
-        for font_path in font_paths:
-            if os.path.exists(font_path):
-                try:
-                    # 对于ttc文件，尝试注册第一个字体
-                    if font_path.endswith('.ttc'):
-                        pdfmetrics.registerFont(TTFont("ChineseFont", font_path, subfontIndex=0))
-                    else:
-                        pdfmetrics.registerFont(TTFont("ChineseFont", font_path))
-                    chinese_font_registered = True
-                    print(f"成功注册中文字体: {font_path}")
-                    break
-                except Exception as e:
-                    print(f"注册字体失败 {font_path}: {e}")
-                    continue
+        # 检查字体是否已注册
+        registered_fonts = pdfmetrics.getRegisteredFontNames()
+        if "ChineseFont" in registered_fonts:
+            print("中文字体已注册")
+            chinese_font_registered = True
+        else:
+            chinese_font_registered = False
+            for font_path in font_paths:
+                if os.path.exists(font_path):
+                    try:
+                        # 对于ttc文件，尝试注册第一个字体
+                        if font_path.endswith('.ttc'):
+                            pdfmetrics.registerFont(TTFont("ChineseFont", font_path, subfontIndex=0))
+                        else:
+                            pdfmetrics.registerFont(TTFont("ChineseFont", font_path))
+                        chinese_font_registered = True
+                        print(f"成功注册中文字体: {font_path}")
+                        break
+                    except Exception as e:
+                        print(f"注册字体失败 {font_path}: {e}")
+                        continue
         
         if not chinese_font_registered:
             # 如果无法注册系统字体，尝试下载并使用开源中文字体
@@ -380,7 +395,11 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
             except Exception as e:
                 print(f"下载并注册字体失败: {e}")
         
-        if not chinese_font_registered:
+        # 注册字体映射，确保中文字体能够正确应用
+        if chinese_font_registered:
+            # 创建字体映射，确保中文字体能够正确应用
+            pdfmetrics.registerFontFamily('ChineseFont', normal='ChineseFont')
+        else:
             print("警告: 未能注册中文字体，中文可能显示为方块")
     except Exception as e:
         print(f"字体注册过程出错: {e}")

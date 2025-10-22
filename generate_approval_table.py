@@ -213,6 +213,44 @@ def parse_form_data(form_json: str) -> Dict[str, Any]:
                             item[cell_name] = cell_value
                         items.append(item)
                     result[widget_name] = items
+
+                    # 从 ext 中提取汇总金额与币种
+                    summary_total = None
+                    currency_code = None
+                    widget_ext = widget.get('ext')
+                    try:
+                        if isinstance(widget_ext, list):
+                            for ext_entry in widget_ext:
+                                ext_type = ext_entry.get('type')
+                                # 总金额通常来自公式控件（例如“金额”的合计）
+                                if ext_type == 'formula' and summary_total is None:
+                                    val = ext_entry.get('value')
+                                    if isinstance(val, (int, float)):
+                                        summary_total = float(val)
+                                    elif isinstance(val, str) and val.strip() != '':
+                                        try:
+                                            summary_total = float(val)
+                                        except Exception:
+                                            pass
+                                # 币种可从 amount 的 sumItems 里解析（如 [{"currency":"CNY","value":"1970"}]）
+                                if ext_type == 'amount' and currency_code is None:
+                                    sum_items = ext_entry.get('sumItems')
+                                    if isinstance(sum_items, str) and sum_items.strip():
+                                        try:
+                                            parsed = json.loads(sum_items)
+                                            if isinstance(parsed, list) and len(parsed) > 0:
+                                                cur = parsed[0].get('currency')
+                                                if cur:
+                                                    currency_code = cur
+                                        except Exception:
+                                            pass
+                    except Exception:
+                        pass
+
+                    result[f"{widget_name}_summary"] = {
+                        'total_amount': summary_total,
+                        'currency': currency_code,
+                    }
                 else:
                     # 处理费用明细的ext字段
                     result[widget_name] = widget
@@ -259,25 +297,40 @@ def build_header_block():
     """公司信息表头"""
     # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
     sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
-                             spaceBefore=0, spaceAfter=0)  # 进一步减少字体大小
+                             spaceBefore=0, spaceAfter=0)
     sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
-                             spaceBefore=0, spaceAfter=0)  # 进一步减少字体大小
+                             spaceBefore=0, spaceAfter=0)
 
-    # 创建公司信息表格
+    # 准备 Logo 图（放在第一行最左侧单元格）
+    logo_cell = ""
+    try:
+        logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+        if os.path.exists(logo_path):
+            # 控制在表格中的显示尺寸（高度约 14pt，与之前一致）
+            logo_cell = Image(logo_path, width=100, height=14)
+            logo_cell.hAlign = 'LEFT'
+        else:
+            logo_cell = ""
+    except Exception:
+        logo_cell = ""
+
+    # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
     company_data = [
-        [Paragraph("上海硼矩新材料科技有限公司", sty_big)],
-        [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
-        [Paragraph("采购申请单", sty_big)]
+        [logo_cell, Paragraph("上海硼矩新材料科技有限公司", sty_big)],
+        ["", Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
+        ["", Paragraph("采购申请单", sty_big)]
     ]
-    company_tbl = Table(company_data, colWidths=[19 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])  # 减少行高
+    company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
     company_tbl.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),  # 增加内边距
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ('ALIGN', (1, 1), (1, 2), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
         ('TOPPADDING', (0, 0), (-1, -1), 8),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),  # 外框
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
     ]))
     return company_tbl
 
@@ -318,9 +371,9 @@ def build_applicant_info_block(applicant_name: str, department_name: str, catego
         ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
         ('FONTSIZE', (0, 0), (-1, -1), 8),  # 调整字体大小
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('BACKGROUND', (0, 0), (0, -1), colors.whitesmoke),
-        ('BACKGROUND', (2, 0), (2, -1), colors.whitesmoke),
-        ('BACKGROUND', (4, 0), (4, -1), colors.whitesmoke),
+        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ('BACKGROUND', (2, 0), (2, -1), colors.lightgrey),
+        ('BACKGROUND', (4, 0), (4, -1), colors.lightgrey),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),  # 减少内边距
         ('TOPPADDING', (0, 0), (-1, -1), 6),
         ('LEFTPADDING', (0, 0), (-1, -1), 6),
@@ -554,9 +607,7 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
     sty_val = ParagraphStyle('Val', fontName='ChineseFont', fontSize=10, textColor=colors.black)
     # 遍历每个审批实例
     for i, detail in enumerate(approval_data, 1):
-        # 0. Logo单独显示在最顶部，无边框，减少顶部空白
-        story.append(build_logo_block())
-        story.append(Spacer(1, 2))  # 进一步减少间距
+        # 0. 取消顶部单独 Logo（Logo 已嵌入公司表头第一行左侧）
 
         # 1. 公司信息表头
         story.append(build_header_block())
@@ -585,22 +636,48 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
         # 4. 费用明细表格
         if detail.get('expense_details'):
 
-            # 费用表格
-            detail_headers = ['序号', '商品名称', '商品明细', '规格型号', '单位', '数量', '单价', '总价', '请购理由',
+            # 从原始表单中获取汇总信息与币种
+            form_data_for_currency = parse_form_data(detail.get('form', '[]'))
+            summary_info = form_data_for_currency.get('费用明细_summary', {})
+            currency_code = summary_info.get('currency') or ''
+
+            # 费用表格（若有币种，在列名中展示）
+            unit_price_header = '单价' + (f"({currency_code})" if currency_code else '')
+            amount_header = '总价' + (f"({currency_code})" if currency_code else '')
+            detail_headers = ['序号', '商品名称', '商品明细', '规格型号', '单位', '数量', unit_price_header, amount_header, '请购理由',
                               '需求人', '备注']
             detail_data = [detail_headers]
-            total_amount = 0
+
+            # 行数据直接使用接口返回的“单价”、“金额”，不再自行计算
+            calc_total_fallback = 0.0
             for idx, item in enumerate(detail['expense_details'], 1):
-                q = float(item.get('数量', 0))
-                p = float(item.get('单价', 0))
-                t = q * p
-                total_amount += t
+                q_val = item.get('数量', '')
+                p_val = item.get('单价', '')
+                t_val = item.get('金额', '')
+
+                # 尝试用于兜底统计
+                try:
+                    calc_total_fallback += float(t_val)
+                except Exception:
+                    pass
+
                 detail_data.append([
                     str(idx), item.get('商品及其辅助属性', ''), item.get('名称', ''), item.get('规格型号', ''),
-                    item.get('单位', ''), str(q), f"{p:.2f}", f"{t:.2f}",
+                    item.get('单位', ''), str(q_val), str(p_val), str(t_val),
                     item.get('请购理由', ''), item.get('需求人', ''), item.get('备注', '')
                 ])
-            detail_data.append(['总金额', '', '', '', '', '', '', f"{total_amount:.2f}", '', '', ''])
+
+            # 总金额优先使用表单汇总，其次用行金额求和兜底
+            total_amount_display = None
+            total_from_summary = summary_info.get('total_amount')
+            if isinstance(total_from_summary, (int, float)):
+                total_amount_display = f"{total_from_summary:.2f}"
+            elif isinstance(total_from_summary, str) and total_from_summary.strip():
+                total_amount_display = total_from_summary
+            else:
+                total_amount_display = f"{calc_total_fallback:.2f}"
+
+            detail_data.append(['总金额', '', '', '', '', '', '', total_amount_display, '', '', ''])
 
             detail_tbl = Table(process_table_data_for_pdf(detail_data),
                                colWidths=[1.0 * cm,  # 序号
@@ -617,8 +694,8 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                                )  # 备注)  # 调整列宽，总宽度19cm
 
             detail_tbl.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
                 ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
@@ -665,8 +742,8 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
             timeline_tbl = Table(process_table_data_for_pdf(modified_timeline_data),
                                  colWidths=[2.5 * cm, 3.8 * cm, 4.5 * cm, 3.8 * cm, 4.4 * cm])  # 总宽度19cm，与表头完全一致
             timeline_tbl.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                 ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小

@@ -363,7 +363,7 @@ def build_applicant_info_block(applicant_name: str, department_name: str, catego
              Paragraph("采购类别", sty_label), Paragraph(category, sty_val),
              Paragraph("期望交货时间", sty_label), Paragraph(delivery_time, sty_val)]]
 
-    tbl = Table(data, colWidths=[3.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm],
+    tbl = Table(data, colWidths=[2.17 * cm, 4.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm],
                 rowHeights=[0.6 * cm])  # 减少行高
     tbl.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -690,7 +690,7 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                                           1.4 * cm,  # 总价
                                           2.8 * cm,  # 请购理由
                                           1.6 * cm,  # 需求人
-                                          2.4 * cm]
+                                          2.2 * cm]
                                )  # 备注)  # 调整列宽，总宽度19cm
 
             detail_tbl.setStyle(TableStyle([
@@ -880,7 +880,7 @@ def main():
     if len(sys.argv) > 1:
         query_date = sys.argv[1]
     else:
-        query_date = "2025-10-15"  # 默认查询日期
+        query_date = "2025-10-21"  # 默认查询日期
 
     generate_approval_report(query_date)
 

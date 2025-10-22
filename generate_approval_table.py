@@ -11,12 +11,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Union
 
 import requests
-from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm
-from reportlab.lib.utils import ImageReader
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Image
 
 from feishu_approval_fetch import (
     request_tenant_access_token,
@@ -220,7 +217,7 @@ def parse_form_data(form_json: str) -> Dict[str, Any]:
                     # 处理费用明细的ext字段
                     result[widget_name] = widget
             else:
-                # 对于其他类型的控件，直接存储value
+                # 对于其他类型的控件，直接存储value                                               
                 result[widget_name] = widget_value
 
         return result
@@ -236,99 +233,103 @@ def get_node_name_from_task_list(task_list: List[Dict[str, Any]], node_id: str) 
             return task.get('node_name', '未知节点')
     return '未知节点'
 
+
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import Table, TableStyle, Paragraph
 from reportlab.lib.styles import ParagraphStyle
 
-# def build_header_block():
-#     """黑字+大框表头（加高版）"""
-#     sty_big = ParagraphStyle(
-#         'HB1',
-#         fontName='ChineseFont',
-#         fontSize=20,
-#         alignment=1,
-#         textColor=colors.black,
-#         spaceBefore=12,   # 段前
-#         spaceAfter=12,    # 段后
-#     )
-#     sty_sml = ParagraphStyle(
-#         'HB2',
-#         fontName='ChineseFont',
-#         fontSize=11,
-#         alignment=1,
-#         textColor=colors.black,
-#         spaceBefore=8,
-#         spaceAfter=8,
-#     )
-#
-#     data = [
-#         [Paragraph("上海硼矩新材料科技有限公司", sty_big)],
-#         [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
-#         [Paragraph("采购申请单", sty_big)],
-#     ]
-#
-#     # 单行行高固定死，三行总和 ≈ 3.5 cm，想再高调大即可
-#     tbl = Table(data, colWidths=[19 * cm], rowHeights=[1.2 * cm, 0.9 * cm, 1.2 * cm])
-#     tbl.setStyle(TableStyle([
-#         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-#         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 上下也居中
-#         ('BOX', (0, 0), (-1, -1), 1.5, colors.black),
-#     ]))
-#     return tbl
-def build_header_block():
-    """优化后的表头：统一宽度，增加内边距，避免文字压在框线上"""
-    # 1. 左侧 BoronMatrix 文字
-    sty_b = ParagraphStyle('LM', fontName='ChineseFont', fontSize=22, textColor=colors.black)
-    left_par = Paragraph('<b>Boron</b>Matrix', sty_b)
 
-    # 2. 右侧公司信息
-    sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=18, alignment=1, textColor=colors.black,
-                             spaceBefore=6, spaceAfter=6)
-    sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=10, alignment=1, textColor=colors.black,
-                             spaceBefore=4, spaceAfter=4)
-    right_data = [
+def build_logo_block():
+    try:
+        logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+        if not os.path.exists(logo_path):
+            return Spacer(1, 0)
+
+        # 等比例压到 10 pt 高
+        img = Image(logo_path, width=100, height=14)  # 157×22 pt
+        img.hAlign = 'LEFT'  # 靠左
+        return img
+    except Exception as e:
+        print(f"logo 加载失败: {e}")
+        return Spacer(1, 0)
+
+
+def build_header_block():
+    """公司信息表头"""
+    # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
+    sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+                             spaceBefore=0, spaceAfter=0)  # 进一步减少字体大小
+    sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+                             spaceBefore=0, spaceAfter=0)  # 进一步减少字体大小
+
+    # 创建公司信息表格
+    company_data = [
         [Paragraph("上海硼矩新材料科技有限公司", sty_big)],
         [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
         [Paragraph("采购申请单", sty_big)]
     ]
-    right_tbl = Table(right_data, colWidths=[13*cm])
-    right_tbl.setStyle(TableStyle([
+    company_tbl = Table(company_data, colWidths=[19 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])  # 减少行高
+    company_tbl.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),  # 增加内边距
-        ('TOPPADDING',    (0, 0), (-1, -1), 8),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),  # 外框
     ]))
+    return company_tbl
 
-    # 3. 左右合并 + 整体加框，使用标准宽度
-    main_data = [[left_par, right_tbl]]
-    main_tbl = Table(main_data, colWidths=[6*cm, 13*cm], rowHeights=[2.5*cm])  # 增加高度
-    main_tbl.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOX',    (0, 0), (-1, -1), 1.5, colors.black),  # 外框
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),  # 增加内边距，避免文字压在框线上
-        ('TOPPADDING',    (0, 0), (-1, -1), 12),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 12),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 12),
-    ]))
-    return main_tbl
+
 def build_approval_info_block(serial: str, start_time: str):
-    """优化后的审批信息块：统一宽度，增加内边距"""
-    sty = ParagraphStyle('AI', fontName='ChineseFont', fontSize=11, textColor=colors.black)
+    """审批编号和申请时间信息块 - 无框线"""
+    sty = ParagraphStyle('AI', fontName='ChineseFont', fontSize=9, textColor=colors.black)
     data = [[Paragraph(f"审批编号：{serial}", sty),
              Paragraph(f"申请时间：{start_time}", sty)]]
-    tbl = Table(data, colWidths=[9.5*cm, 9.5*cm])  # 保持与表头一致的宽度
+    tbl = Table(data, colWidths=[9.5 * cm, 9.5 * cm], rowHeights=[0.5 * cm])  # 进一步减少行高
     tbl.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),  # 增加内边距
-        ('TOPPADDING',    (0, 0), (-1, -1), 12),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 12),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 12),
-        ('BOX', (0, 0), (-1, -1), 1.5, colors.black),  # 添加外框
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # 减少内边距
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        # 移除BOX边框
     ]))
     return tbl
+
+
+def build_applicant_info_block(applicant_name: str, department_name: str, category: str, delivery_time: str):
+    """申请人、采购类别、期望交货时间信息表格"""
+    sty_label = ParagraphStyle('Lab', fontName='ChineseFont', fontSize=8, textColor=colors.black)
+    sty_val = ParagraphStyle('Val', fontName='ChineseFont', fontSize=8, textColor=colors.black)
+
+    data = [[Paragraph("申请人", sty_label), Paragraph(f"{applicant_name}-{department_name}", sty_val),
+             Paragraph("采购类别", sty_label), Paragraph(category, sty_val),
+             Paragraph("期望交货时间", sty_label), Paragraph(delivery_time, sty_val)]]
+
+    tbl = Table(data, colWidths=[3.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm],
+                rowHeights=[0.6 * cm])  # 减少行高
+    tbl.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
+        ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),  # 调整字体大小
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 0), (0, -1), colors.whitesmoke),
+        ('BACKGROUND', (2, 0), (2, -1), colors.whitesmoke),
+        ('BACKGROUND', (4, 0), (4, -1), colors.whitesmoke),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),  # 减少内边距
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+    ]))
+    return tbl
+
+
 def format_timeline_table(timeline: List[Dict[str, Any]], task_list: List[Dict[str, Any]],
                           employee_mapping: Dict[str, str], node_name_mapping: Dict[str, str]) -> List[List[str]]:
     """格式化审批时间线为表格格式"""
@@ -507,7 +508,15 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
         output_filename = f"审批报告_{query_date}.pdf"
 
     # 创建PDF文档
-    doc = SimpleDocTemplate(output_filename, pagesize=A4)
+    # doc = SimpleDocTemplate(output_filename, pagesize=A4)
+    doc = SimpleDocTemplate(
+        output_filename,
+        pagesize=A4,
+        topMargin=0.2 * cm,  # 👈 关键：几乎顶格
+        rightMargin=1 * cm,
+        bottomMargin=1 * cm,
+        leftMargin=1 * cm
+    )
     story = []
 
     # 获取样式
@@ -542,59 +551,43 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
         fontName="ChineseFont"
     )
     sty_label = ParagraphStyle('Lab', fontName='ChineseFont', fontSize=10, textColor=colors.black)
-    sty_val   = ParagraphStyle('Val', fontName='ChineseFont', fontSize=10, textColor=colors.black)
+    sty_val = ParagraphStyle('Val', fontName='ChineseFont', fontSize=10, textColor=colors.black)
     # 遍历每个审批实例
     for i, detail in enumerate(approval_data, 1):
-        # 0. 矢量表头
-        story.append(build_header_block())
-        story.append(Spacer(1, 20))   # 与正文空 20 pt
+        # 0. Logo单独显示在最顶部，无边框，减少顶部空白
+        story.append(build_logo_block())
+        story.append(Spacer(1, 2))  # 进一步减少间距
 
-        # 1. 审批信息（审批编号和申请时间）
+        # 1. 公司信息表头
+        story.append(build_header_block())
+        story.append(Spacer(1, 5))  # 减少间距
+
+        # 2. 审批信息（审批编号和申请时间）
         story.append(build_approval_info_block(
             detail.get('serial_number', 'N/A'),
             detail.get('start_time_formatted', 'N/A')
         ))
-        story.append(Spacer(1, 15))
+        story.append(Spacer(1, 8))  # 减少间距
 
-        # 2. 费用明细标题
-        # story.append(Paragraph("费用明细", heading_style))
-        story.append(Spacer(1, 10))
+        # 3. 申请人信息表格
+        form_data = parse_form_data(detail.get('form', '[]'))
+        cat = form_data.get('采购类别', '未知')
+        delivery = form_data.get('期望交货时间', '').split('T')[0] if 'T' in form_data.get('期望交货时间', '') else '未知'
 
-        # ===== 费用明细标题 =====
+        story.append(build_applicant_info_block(
+            detail.get('applicant_name', ''),
+            detail.get('department_name', ''),
+            cat,
+            delivery
+        ))
+        story.append(Spacer(1, 8))  # 减少间距
+
+        # 4. 费用明细表格
         if detail.get('expense_details'):
-            story.append(Spacer(1, 15))
-            story.append(Paragraph("费用明细", heading_style))
-            story.append(Spacer(1, 8))
 
-            # ---- 申请人/部门/采购类别/期望交货时间 一行 ----
-            form_data = parse_form_data(detail.get('form', '[]'))
-            cat = form_data.get('采购类别', '未知')
-            delivery = form_data.get('期望交货时间', '').split('T')[0] if 'T' in form_data.get('期望交货时间', '') else '未知'
-            info_tbl = Table([[Paragraph("申请人", sty_label), Paragraph(detail.get('applicant_name', '')+'-'+detail.get('department_name', ''), sty_val),
-                               # Paragraph("申请部门", sty_label), Paragraph(detail.get('department_name', ''), sty_val),
-                               Paragraph("采购类别", sty_label), Paragraph(cat, sty_val),
-                               Paragraph("期望交货时间", sty_label), Paragraph(delivery, sty_val)]],
-                             colWidths=[2.2*cm, 2.8*cm]*4)
-            info_tbl.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('BACKGROUND', (0, 0), (0, -1), colors.whitesmoke),
-                ('BACKGROUND', (2, 0), (2, -1), colors.whitesmoke),
-                ('BACKGROUND', (4, 0), (4, -1), colors.whitesmoke),
-                ('BACKGROUND', (6, 0), (6, -1), colors.whitesmoke),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),  # 增加内边距
-                ('TOPPADDING',    (0, 0), (-1, -1), 8),
-                ('LEFTPADDING',   (0, 0), (-1, -1), 8),
-                ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
-                ('BOX', (0, 0), (-1, -1), 1.5, colors.black),  # 添加外框
-            ]))
-            story.append(info_tbl)
-            story.append(Spacer(1, 10))
-
-            # ---- 费用表格（原有逻辑，仅把表头/列宽粘过来） ----
-            detail_headers = ['序号', '商品名称(可选)', '商品明细', '规格型号', '单位', '数量', '单价', '总价', '请购理由', '需求人', '备注']
+            # 费用表格
+            detail_headers = ['序号', '商品名称', '商品明细', '规格型号', '单位', '数量', '单价', '总价', '请购理由',
+                              '需求人', '备注']
             detail_data = [detail_headers]
             total_amount = 0
             for idx, item in enumerate(detail['expense_details'], 1):
@@ -610,31 +603,42 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
             detail_data.append(['总金额', '', '', '', '', '', '', f"{total_amount:.2f}", '', '', ''])
 
             detail_tbl = Table(process_table_data_for_pdf(detail_data),
-                               colWidths=[0.8*cm, 2*cm, 2*cm, 1.8*cm, 0.8*cm, 0.8*cm, 1.2*cm, 1.2*cm, 1.8*cm, 1.2*cm, 1.2*cm])
+                               colWidths=[1.0 * cm,  # 序号
+                                          2.3 * cm,  # 商品名称
+                                          2.3 * cm,  # 商品明细
+                                          2.2 * cm,  # 规格型号
+                                          1.0 * cm,  # 单位
+                                          1.0 * cm,  # 数量
+                                          1.2 * cm,  # 单价
+                                          1.4 * cm,  # 总价
+                                          2.8 * cm,  # 请购理由
+                                          1.6 * cm,  # 需求人
+                                          2.4 * cm]
+                               )  # 备注)  # 调整列宽，总宽度19cm
+
             detail_tbl.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
                 ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),
-                ('FONTSIZE', (0, 1), (-1, -2), 8),
-                ('GRID', (0, 0), (-1, -2), 1, colors.black),
+                ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
+                ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('BACKGROUND', (0, -1), (6, -1), colors.lightgrey),
-                ('SPAN', (0, -1), (6, -1)),   # 总金额合并
-                ('LINEABOVE', (0, -1), (-1, -1), 0, colors.white),  # 去上框
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),  # 增加内边距
-                ('TOPPADDING',    (0, 0), (-1, -1), 6),
-                ('LEFTPADDING',   (0, 0), (-1, -1), 6),
-                ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
-                ('BOX', (0, 0), (-1, -2), 1.5, colors.black),  # 添加外框
+                ('SPAN', (0, -1), (6, -1)),
+                ('LINEABOVE', (0, -1), (-1, -1), 0.5, colors.black),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # 减少内边距
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
             ]))
             story.append(detail_tbl)
-            story.append(Spacer(1, 20))
+            story.append(Spacer(1, 10))  # 减少间距
 
         # ===== 审批进程（费用表格之后） =====
         if detail.get('timeline_table'):
-            story.append(Paragraph("审批进程", heading_style))
-            story.append(Spacer(1, 8))
             # 下面保持你原有 timeline_table 逻辑即可
             modified_timeline_data = []
             timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
@@ -643,9 +647,15 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                 processor_name = row[2]
                 signature_path = get_signature_image_path(processor_name)
                 if signature_path:
+
                     try:
-                        signature_img = Image(signature_path, width=2.5*cm, height=1*cm)
+                        # from reportlab.lib.units import pt
+
+                        # signature_img = Image(signature_path, width=None, height=10)  # 10 pt
+                        signature_img = Image(signature_path, width=24, height=10)
                         modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
+                        # signature_img = Image(signature_path, width=2.5*cm, height=1*cm)
+                        # modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
                     except Exception as e:
                         print(f"签名图加载失败: {e}")
                         modified_timeline_data.append(row)
@@ -653,21 +663,21 @@ def generate_pdf_report(approval_data: List[Dict[str, Any]], query_date: str, ou
                     modified_timeline_data.append(row)
 
             timeline_tbl = Table(process_table_data_for_pdf(modified_timeline_data),
-                                 colWidths=[1*cm, 2.5*cm, 3*cm, 2.5*cm, 3*cm])
+                                 colWidths=[2.5 * cm, 3.8 * cm, 4.5 * cm, 3.8 * cm, 4.4 * cm])  # 总宽度19cm，与表头完全一致
             timeline_tbl.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),
-                ('FONTSIZE', (0, 1), (-1, -1), 9),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
+                ('FONTSIZE', (0, 1), (-1, -1), 6),  # 进一步减少字体大小
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),  # 增加内边距
-                ('TOPPADDING',    (0, 0), (-1, -1), 8),
-                ('LEFTPADDING',   (0, 0), (-1, -1), 8),
-                ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
-                ('BOX', (0, 0), (-1, -1), 1.5, colors.black),  # 添加外框
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),  # 进一步减少内边距，更紧凑
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
             ]))
             story.append(timeline_tbl)
 

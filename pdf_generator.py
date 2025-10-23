@@ -253,11 +253,11 @@ class PDFGenerator:
         sty_val = ParagraphStyle('Val', fontName='ChineseFont', fontSize=8, textColor=colors.black)
 
         data = [[Paragraph("申请人", sty_label), Paragraph(f"{applicant_name}-{department_name}", sty_val),
-                 Paragraph("报销事由", sty_label), Paragraph(reimbursement_reason, sty_val),
-                 Paragraph("费用汇总", sty_label), Paragraph(str(total_amount), sty_val)]]
+                 Paragraph("费用汇总", sty_label), Paragraph(str(total_amount), sty_val),
+                 Paragraph("报销事由", sty_label), Paragraph(reimbursement_reason, sty_val)]]
 
-        tbl = Table(data, colWidths=[2.17 * cm, 4.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm],
-                    rowHeights=[0.6 * cm])  # 减少行高
+        tbl = Table(data, colWidths=[2.17 * cm, 4.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm, 3.17 * cm])
+        # 移除固定行高设置，让表格自适应内容高度
         tbl.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
@@ -931,18 +931,6 @@ class PDFGenerator:
                     ])
                     expense_details.append(item)
                 
-                # 总金额优先使用表单汇总，其次用行金额求和兜底
-                total_amount_display = None
-                total_from_summary = summary_info.get('total_amount')
-                if isinstance(total_from_summary, (int, float)):
-                    total_amount_display = f"{total_from_summary:.2f}"
-                elif isinstance(total_from_summary, str) and total_from_summary.strip():
-                    total_amount_display = total_from_summary
-                else:
-                    total_amount_display = f"{calc_total_fallback:.2f}"
-                
-                detail_data.append(['总金额', '', '', '', total_amount_display])
-                
                 detail_tbl = Table(self.process_table_data_for_pdf(detail_data),
                                    colWidths=[1.5 * cm,  # 序号
                                               2.5 * cm,  # 报销类型
@@ -960,9 +948,6 @@ class PDFGenerator:
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                    ('BACKGROUND', (0, -1), (3, -1), colors.lightgrey),
-                    ('SPAN', (0, -1), (3, -1)),
-                    ('LINEABOVE', (0, -1), (-1, -1), 0.5, colors.black),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # 减少内边距
                     ('TOPPADDING', (0, 0), (-1, -1), 4),
                     ('LEFTPADDING', (0, 0), (-1, -1), 4),

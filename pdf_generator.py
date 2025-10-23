@@ -4,7 +4,7 @@ PDF生成模块
 负责不同类型审批的PDF报告生成
 """
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Union
 
 from reportlab.lib import colors
@@ -25,7 +25,8 @@ class PDFGenerator:
     def __init__(self, feishu_api: FeishuAPI, employee_manager: EmployeeManager):
         self.feishu_api = feishu_api
         self.employee_manager = employee_manager
-        self.local_tz = timezone.utc
+        # 使用中国时区 UTC+8
+        self.local_tz = timezone(timedelta(hours=8))
     
     def register_chinese_fonts(self):
         """注册中文字体"""
@@ -292,6 +293,33 @@ class PDFGenerator:
             return dt.strftime("%Y-%m-%d %H:%M:%S")
         except Exception:
             return ""
+
+    def format_date_string(self, date_str: str) -> str:
+        """格式化日期字符串，处理时区问题"""
+        try:
+            if not date_str:
+                return ""
+            
+            # 如果包含T，说明是ISO格式，需要解析时区
+            if 'T' in date_str:
+                # 解析ISO格式日期
+                from datetime import datetime
+                # 移除时区信息并解析
+                if '+' in date_str:
+                    date_str = date_str.split('+')[0]
+                elif 'Z' in date_str:
+                    date_str = date_str.replace('Z', '')
+                
+                # 解析为datetime对象
+                dt = datetime.fromisoformat(date_str)
+                # 转换为中国时区
+                dt = dt.replace(tzinfo=timezone.utc).astimezone(self.local_tz)
+                return dt.strftime("%Y-%m-%d")
+            else:
+                # 如果已经是简单日期格式，直接返回
+                return date_str
+        except Exception:
+            return date_str
 
     def parse_form_data(self, form_json: str) -> Dict[str, Any]:
         """解析表单数据"""
@@ -839,6 +867,356 @@ class PDFGenerator:
             traceback.print_exc()
             return None
 
+    def build_header_block_fixed_asset(self):
+        """公司信息表头 - 固定资产验收版本"""
+        # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+
+        # 准备 Logo 图（放在第一行最左侧单元格）
+        logo_cell = ""
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+            if os.path.exists(logo_path):
+                # 控制在表格中的显示尺寸（高度约 14pt，与之前一致）
+                logo_cell = Image(logo_path, width=100, height=14)
+                logo_cell.hAlign = 'LEFT'
+            else:
+                logo_cell = ""
+        except Exception:
+            logo_cell = ""
+
+        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
+        company_data = [
+            [logo_cell, Paragraph("上海硼矩新材料科技有限公司", sty_big)],
+            ["", Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
+            ["", Paragraph("固定资产验收单", sty_big)]  # 修改为固定资产验收单
+        ]
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return company_tbl
+
+    def build_approval_info_block_fixed_asset(self, serial: str, start_time: str, supplier: str):
+        """审批编号、申请时间和供应商信息块 - 无框线"""
+        sty = ParagraphStyle('AI', fontName='ChineseFont', fontSize=9, textColor=colors.black)
+        data = [[Paragraph(f"审批编号：{serial}", sty),
+                 Paragraph(f"申请时间：{start_time}", sty),
+                 Paragraph(f"供应商：{supplier}", sty)]]
+        tbl = Table(data, colWidths=[6.0 * cm, 6.0 * cm, 7.0 * cm], rowHeights=[0.5 * cm])  # 三列布局
+        tbl.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # 减少内边距
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            # 移除BOX边框
+        ]))
+        return tbl
+
+    def build_asset_info_table(self, asset_data: List[Dict[str, Any]]) -> Table:
+        """构建资产信息表格（首行表名，列宽总计19cm）"""
+        headers = ['序号', '资产编码', '名称', '规格型号', '数量/单位', '到货日期', '购置日期']
+        table_data = [[self.create_wrapped_text('资产信息')], headers]
+        
+        for idx, asset in enumerate(asset_data, 1):
+            # 格式化日期
+            arrival_date = self.format_date_string(asset.get('到货日期', ''))
+            purchase_date = self.format_date_string(asset.get('购置日期', ''))
+            
+            # 直接使用数量/单位字段
+            quantity_unit = asset.get('数量/单位', '')
+            
+            table_data.append([
+                str(idx),
+                '',  # 资产编码 - 从数据中提取或留空
+                asset.get('资产名称', ''),
+                asset.get('规格型号', ''),
+                quantity_unit,
+                arrival_date,
+                purchase_date
+            ])
+        
+        tbl = Table(self.process_table_data_for_pdf(table_data),
+                   colWidths=[1.5 * cm, 2.0 * cm, 3.5 * cm, 3.5 * cm, 2.5 * cm, 3.0 * cm, 3.0 * cm])
+        tbl.setStyle(TableStyle([
+            ('SPAN', (0, 0), (-1, 0)),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 1), (-1, 1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+            ('FONTSIZE', (0, 1), (-1, 1), 7),
+            ('FONTSIZE', (0, 2), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return tbl
+
+    def build_accessory_list_table(self) -> Table:
+        """构建配件清单表格（首行表名，列宽总计19cm）"""
+        headers = ['序号', '名称', '规格型号', '数量/单位', '备注']
+        table_data = [[self.create_wrapped_text('配件清单')], headers]
+        
+        tbl = Table(self.process_table_data_for_pdf(table_data),
+                   colWidths=[1.5 * cm, 4.0 * cm, 3.0 * cm, 3.0 * cm, 7.5 * cm])
+        tbl.setStyle(TableStyle([
+            ('SPAN', (0, 0), (-1, 0)),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 1), (-1, 1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+            ('FONTSIZE', (0, 1), (-1, 1), 7),
+            ('FONTSIZE', (0, 2), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return tbl
+
+    def build_acceptance_check_table(self, form_data: Dict[str, Any]) -> Table:
+        """构建验收情况表格（首行表名，列宽总计19cm）"""
+        # 左列：1.数量是否符合, 3.配件是否齐全, 5.功能测试结果
+        # 右列：2.规格型号是否符合, 4.外观包装是否完好
+        left_headers = ['1.数量是否符合', '3.配件是否齐全', '5.功能测试结果']
+        right_headers = ['2.规格型号是否符合', '4.外观包装是否完好']
+        
+        # 获取表单数据
+        quantity_match = form_data.get('1.数量是否符合', '')
+        spec_match = form_data.get('2.规格型号是否符合', '')
+        accessories_complete = form_data.get('3.配件是否齐全', '')
+        appearance_ok = form_data.get('4.外观包装是否完好', '')
+        function_test = form_data.get('5.功能测试结果', '')
+        
+        # 构建表格数据
+        table_data = [[self.create_wrapped_text('验收情况（验收人填写）')]]
+        max_rows = max(len(left_headers), len(right_headers))
+        
+        for i in range(max_rows):
+            left_item = left_headers[i] if i < len(left_headers) else ''
+            right_item = right_headers[i] if i < len(right_headers) else ''
+            
+            left_value = ''
+            right_value = ''
+            
+            if i == 0:  # 1.数量是否符合
+                left_value = quantity_match
+            elif i == 1:  # 3.配件是否齐全
+                left_value = accessories_complete
+            elif i == 2:  # 5.功能测试结果
+                left_value = function_test
+                
+            if i == 0:  # 2.规格型号是否符合
+                right_value = spec_match
+            elif i == 1:  # 4.外观包装是否完好
+                right_value = appearance_ok
+            
+            table_data.append([left_item, left_value, right_item, right_value])
+        
+        tbl = Table(self.process_table_data_for_pdf(table_data),
+                   colWidths=[6.0 * cm, 3.5 * cm, 6.0 * cm, 3.5 * cm])
+        tbl.setStyle(TableStyle([
+            ('SPAN', (0, 0), (-1, 0)),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+            ('FONTSIZE', (0, 0), (-1, 0), 7),
+            ('FONTSIZE', (0, 1), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return tbl
+
+    def build_acceptance_record_table(self, form_data: Dict[str, Any]) -> Table:
+        """构建验收记录表格（首行表名，总宽19cm；前两行值独占一行，第三行人员与日期同一行）"""
+        # 获取表单数据
+        acceptance_result = form_data.get('验收结果', '')
+        other_notes = form_data.get('其他情况说明', '')
+        participants = form_data.get('参与验收人员', '')
+        acceptance_date = form_data.get('验收日期', '')
+        
+        # 构建表格数据
+        table_data = [[self.create_wrapped_text('验收记录（验收人填写）')],
+            ['验收结果', acceptance_result, '', ''],
+            ['其他情况说明', other_notes, '', ''],
+            ['参与验收人员', participants, '验收日期', acceptance_date]
+        ]
+        
+        tbl = Table(self.process_table_data_for_pdf(table_data),
+                   colWidths=[3.0 * cm, 8.0 * cm, 3.0 * cm, 5.0 * cm])
+        tbl.setStyle(TableStyle([
+            ('SPAN', (0, 0), (-1, 0)),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('BACKGROUND', (0, 1), (0, 2), colors.lightgrey),
+            ('SPAN', (1, 1), (-1, 1)),
+            ('SPAN', (1, 2), (-1, 2)),
+            ('BACKGROUND', (0, 3), (0, 3), colors.lightgrey),
+            ('BACKGROUND', (2, 3), (2, 3), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return tbl
+
+    def generate_fixed_asset_acceptance_pdf(self, approval_detail: Dict[str, Any]) -> str:
+        """生成固定资产验收审批PDF报告"""
+        try:
+            # 注册中文字体
+            self.register_chinese_fonts()
+            
+            # 生成PDF文件名
+            instance_code = approval_detail.get('instance_code', 'unknown')
+            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_filename = f"固定资产验收审批报告_{instance_code}_{current_time}.pdf"
+            
+            # 创建PDF文档
+            doc = SimpleDocTemplate(
+                output_filename,
+                pagesize=A4,
+                topMargin=0.2 * cm,
+                rightMargin=1 * cm,
+                bottomMargin=1 * cm,
+                leftMargin=1 * cm
+            )
+            story = []
+            
+            # 1. 公司信息表头
+            story.append(self.build_header_block_fixed_asset())
+            story.append(Spacer(1, 5))
+            
+            # 2. 审批信息（审批编号、申请时间、供应商）
+            form_data = self.parse_form_data(approval_detail.get('form', '[]'))
+            supplier = form_data.get('供应商', '未知')
+            start_time_formatted = self.format_time_without_timezone(approval_detail.get('start_time', ''))
+            
+            story.append(self.build_approval_info_block_fixed_asset(
+                approval_detail.get('serial_number', 'N/A'),
+                start_time_formatted,
+                supplier
+            ))
+            story.append(Spacer(1, 8))
+            
+            # 3. 资产信息表格
+            if '资产信息' in form_data and form_data['资产信息']:
+                asset_table = self.build_asset_info_table(form_data['资产信息'])
+                story.append(asset_table)
+                story.append(Spacer(1, 10))
+            
+            # 4. 配件清单表格
+            accessory_table = self.build_accessory_list_table()
+            story.append(accessory_table)
+            story.append(Spacer(1, 10))
+            
+            # 5. 验收情况表格
+            acceptance_check_table = self.build_acceptance_check_table(form_data)
+            story.append(acceptance_check_table)
+            story.append(Spacer(1, 10))
+            
+            # 6. 验收记录表格
+            acceptance_record_table = self.build_acceptance_record_table(form_data)
+            story.append(acceptance_record_table)
+            story.append(Spacer(1, 10))
+            
+            # 7. 审批进程表格
+            timeline = approval_detail.get("timeline", [])
+            task_list = approval_detail.get("task_list", [])
+            if timeline:
+                timeline_table = self.format_timeline_table(timeline, task_list)
+                
+                # 处理签名图片
+                modified_timeline_data = []
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
+                modified_timeline_data.append(timeline_headers)
+                
+                for row in timeline_table:
+                    processor_name = row[2]
+                    signature_path = self.employee_manager.get_signature_image_path(processor_name)
+                    
+                    if signature_path:
+                        try:
+                            signature_img = Image(signature_path, width=24, height=10)
+                            modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
+                        except Exception as e:
+                            print(f"签名图加载失败: {e}")
+                            modified_timeline_data.append(row)
+                    else:
+                        modified_timeline_data.append(row)
+                
+                timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
+                                     colWidths=[2.5 * cm, 3.8 * cm, 4.5 * cm, 3.8 * cm, 4.4 * cm])
+                timeline_tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7),
+                    ('FONTSIZE', (0, 1), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                ]))
+                story.append(timeline_tbl)
+            
+            # 生成PDF
+            doc.build(story)
+            print(f"固定资产验收PDF报告已生成: {output_filename}")
+            return output_filename
+            
+        except Exception as e:
+            print(f"生成固定资产验收PDF失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def generate_expense_reimbursement_pdf(self, approval_detail: Dict[str, Any]) -> str:
         """生成费用报销审批PDF报告 - 采用与采购申请相同的模板风格"""
         try:
@@ -919,8 +1297,7 @@ class PDFGenerator:
                     
                     # 格式化日期
                     date_val = item.get('日期（年-月-日）', '')
-                    if 'T' in date_val:
-                        date_val = date_val.split('T')[0]
+                    date_val = self.format_date_string(date_val)
                     
                     detail_data.append([
                         str(idx), 

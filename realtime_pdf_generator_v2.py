@@ -235,7 +235,7 @@ class RealtimePDFGenerator:
             elif approval_type == "三方比价":
                 pdf_filename = self.pdf_generator.generate_three_way_comparison_pdf(approval_detail)
             elif approval_type == "固定资产":
-                pdf_filename = self.pdf_generator.generate_fixed_asset_pdf(approval_detail)
+                pdf_filename = self.pdf_generator.generate_fixed_asset_acceptance_pdf(approval_detail)
             elif approval_type == "费用报销":
                 pdf_filename = self.pdf_generator.generate_expense_reimbursement_pdf(approval_detail)
             else:

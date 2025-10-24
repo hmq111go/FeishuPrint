@@ -7,7 +7,8 @@
 import json
 import os
 import sys
-from typing import Dict, Any
+import time
+from typing import Dict, Any, Set
 
 import lark_oapi as lark
 
@@ -36,6 +37,11 @@ class RealtimePDFGenerator:
         self.feishu_api = FeishuAPI(app_id, app_secret)
         self.employee_manager = EmployeeManager(self.feishu_api, employee_base_url)
         self.pdf_generator = PDFGenerator(self.feishu_api, self.employee_manager)
+        
+        # 事件去重机制：记录已处理的审批实例
+        self.processed_instances: Set[str] = set()
+        self.instance_processing_time: Dict[str, float] = {}
+        self.DEDUPLICATION_WINDOW = 300  # 5分钟内的重复事件将被忽略
     
     def get_approval_type_name(self, approval_code: str) -> str:
         """根据审批定义代码获取审批类型名称"""
@@ -43,6 +49,31 @@ class RealtimePDFGenerator:
             if code == approval_code:
                 return type_name
         return "未知类型"
+    
+    def is_duplicate_event(self, instance_code: str, operate_time: str) -> bool:
+        """检查是否为重复事件"""
+        current_time = time.time()
+        
+        # 清理过期的处理记录
+        expired_instances = []
+        for instance, process_time in self.instance_processing_time.items():
+            if current_time - process_time > self.DEDUPLICATION_WINDOW:
+                expired_instances.append(instance)
+        
+        for instance in expired_instances:
+            self.processed_instances.discard(instance)
+            del self.instance_processing_time[instance]
+        
+        # 检查是否已处理过此实例
+        if instance_code in self.processed_instances:
+            print(f"[事件去重] 审批实例 {instance_code} 已在去重窗口内处理过，忽略重复事件")
+            return True
+        
+        # 记录处理时间和实例
+        self.processed_instances.add(instance_code)
+        self.instance_processing_time[instance_code] = current_time
+        
+        return False
     
     def do_approval_instance_event(self, data: lark.CustomizedEvent) -> None:
         """处理审批实例状态变更事件"""
@@ -56,11 +87,15 @@ class RealtimePDFGenerator:
             status = event_dict.get("event", {}).get("status", "")
             instance_code = event_dict.get("event", {}).get("instance_code", "")
             approval_code = event_dict.get("event", {}).get("approval_code", "")
+            operate_time = event_dict.get("event", {}).get("operate_time", "")
 
             print(f"[审批事件处理] 审批状态: {status}, 实例Code: {instance_code}, 审批定义Code: {approval_code}")
 
-                # 处理审批通过事件
+            # 处理审批通过事件
             if status == "APPROVED":
+                # 检查是否为重复事件
+                if self.is_duplicate_event(instance_code, operate_time):
+                    return
                 # 清理过期缓存
                 self.employee_manager.clear_expired_cache()
                 

@@ -1483,7 +1483,10 @@ class PDFGenerator:
             # 生成PDF
             doc.build(story)
             print(f"固定资产验收PDF报告已生成: {output_filename}")
-            return output_filename
+            
+            # 自动打印并重命名
+            final_filename = self._print_and_rename_pdf(output_filename)
+            return final_filename
             
         except Exception as e:
             print(f"生成固定资产验收PDF失败: {e}")
@@ -1655,7 +1658,10 @@ class PDFGenerator:
             # 生成PDF
             doc.build(story)
             print(f"费用报销PDF报告已生成: {output_filename}")
-            return output_filename
+            
+            # 自动打印并重命名
+            final_filename = self._print_and_rename_pdf(output_filename)
+            return final_filename
             
         except Exception as e:
             print(f"生成费用报销PDF失败: {e}")

@@ -164,10 +164,14 @@ class EmployeeManager:
         
         return "未知用户"
     
-    def get_signature_image_path(self, employee_name: str) -> Optional[str]:
-        """获取员工签名图片路径"""
+    def get_signature_image_path(self, employee_name: str, force_refresh: bool = False) -> Optional[str]:
+        """获取员工签名图片路径（支持强制刷新）"""
         if not employee_name or employee_name == "未知用户":
             return None
+        
+        # 如果强制刷新，清除缓存
+        if force_refresh and employee_name in self.signature_cache:
+            del self.signature_cache[employee_name]
         
         # 首先检查缓存
         if employee_name in self.signature_cache:
@@ -188,8 +192,90 @@ class EmployeeManager:
             self.signature_cache[employee_name] = image_path
             return image_path
         else:
+            # 尝试从多维表格获取最新的签名图片
+            print(f"本地未找到员工 {employee_name} 的签名图片，尝试从多维表格获取...")
+            if self._download_signature_from_table(employee_name):
+                # 重新检查文件
+                if os.path.exists(image_path):
+                    self.signature_cache[employee_name] = image_path
+                    return image_path
+            
             print(f"警告: 未找到员工 {employee_name} 的签名图片: {image_path}")
             return None
+    
+    def _download_signature_from_table(self, employee_name: str) -> bool:
+        """从多维表格下载指定员工的签名图片"""
+        try:
+            # 解析多维表格参数
+            table_params = self.feishu_api.parse_base_url(self.base_url)
+            app_token = table_params["app_token"]
+            table_id = table_params["table_id"]
+            view_id = table_params["view_id"]
+            
+            if not app_token or not table_id:
+                print(f"无法解析多维表格参数")
+                return False
+            
+            # 获取所有记录
+            records = self.feishu_api.search_records(app_token, table_id, view_id)
+            
+            # 查找指定员工的记录
+            for record in records:
+                fields = record.get("fields", {})
+                employee_field = fields.get("员工", [])
+                
+                if isinstance(employee_field, list) and len(employee_field) > 0:
+                    first_employee = employee_field[0]
+                    record_employee_name = first_employee.get("name")
+                    
+                    if record_employee_name == employee_name:
+                        # 找到匹配的员工记录，获取签名图片
+                        attachment_field = fields.get("附件", [])
+                        if isinstance(attachment_field, list) and len(attachment_field) > 0:
+                            first_attachment = attachment_field[0]
+                            file_url = first_attachment.get("url")
+                            original_name = first_attachment.get("name", "")
+                            
+                            if file_url:
+                                file_extension = ""
+                                if "." in original_name:
+                                    file_extension = original_name[original_name.rfind("."):]
+                                
+                                new_filename = f"{employee_name}{file_extension}"
+                                signature_path = os.path.join(os.path.dirname(__file__), "signatures", new_filename)
+                                
+                                if self.feishu_api.download_file(file_url, signature_path):
+                                    self.signature_cache[employee_name] = signature_path
+                                    print(f"成功从多维表格获取员工 {employee_name} 的最新签名图片")
+                                    return True
+                        break
+            
+            print(f"在多维表格中未找到员工 {employee_name} 的签名图片")
+            return False
+            
+        except Exception as e:
+            print(f"从多维表格获取签名图片失败: {e}")
+            return False
+    
+    def refresh_all_signatures(self) -> Dict[str, bool]:
+        """强制刷新所有员工的签名图片"""
+        results = {}
+        print("开始刷新所有员工的签名图片...")
+        
+        for employee_name in self.employee_mapping.keys():
+            print(f"刷新员工 {employee_name} 的签名图片...")
+            success = self._download_signature_from_table(employee_name)
+            results[employee_name] = success
+            if success:
+                print(f"✅ 员工 {employee_name} 的签名图片刷新成功")
+            else:
+                print(f"❌ 员工 {employee_name} 的签名图片刷新失败")
+        
+        success_count = sum(1 for success in results.values() if success)
+        total_count = len(results)
+        print(f"签名图片刷新完成: {success_count}/{total_count} 成功")
+        
+        return results
     
     def get_employee_count(self) -> int:
         """获取员工数量"""
@@ -295,6 +381,7 @@ class EmployeeManager:
         for name, open_id in self.employee_mapping.items():
             if open_id == user_id:
                 result["name"] = name
+                # 尝试获取签名图片（如果本地没有则从多维表格获取）
                 result["signature_path"] = self.get_signature_image_path(name)
                 # 更新实时缓存
                 self.realtime_cache[user_id] = {

@@ -649,21 +649,22 @@ class PDFGenerator:
                 timeline_headers = ['序号', '节点名称', '处理人', '处理结果','处理意见', '处理时间']
                 modified_timeline_data.append(timeline_headers)
                 
-            for row in timeline_table:
-                processor_name = row[2]
-                # 通过姓名获取签名图片路径
-                signature_path = self.employee_manager.get_signature_image_path(processor_name)
-                
-                if signature_path:
-                    try:
-                        signature_img = Image(signature_path, width=24, height=10)
-                        modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
-                    except Exception as e:
-                        print(f"签名图加载失败: {e}")
+                for row in timeline_table:
+                    processor_name = row[2]
+                    # 通过姓名获取签名图片路径
+                    signature_path = self.employee_manager.get_signature_image_path(processor_name)
+                    
+                    if signature_path:
+                        try:
+                            signature_img = Image(signature_path, width=24, height=10)
+                            modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
+                        except Exception as e:
+                            print(f"签名图加载失败: {e}")
+                            modified_timeline_data.append(row)
+                    else:
                         modified_timeline_data.append(row)
-                else:
-                    modified_timeline_data.append(row)
                 
+                # 创建单个审批进程表格
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
                                      colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])  # 总宽度19cm，与表头完全一致
                 timeline_tbl.setStyle(TableStyle([

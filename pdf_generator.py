@@ -497,6 +497,7 @@ class PDFGenerator:
                 node_name,
                 processor_name,
                 result,
+                comment if comment and comment.strip() else "",
                 formatted_time
             ])
 
@@ -645,7 +646,7 @@ class PDFGenerator:
                 
                 # 处理签名图片
                 modified_timeline_data = []
-                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果','处理意见', '处理时间']
                 modified_timeline_data.append(timeline_headers)
                 
             for row in timeline_table:
@@ -664,7 +665,7 @@ class PDFGenerator:
                     modified_timeline_data.append(row)
                 
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
-                                     colWidths=[2.5 * cm, 3.8 * cm, 4.5 * cm, 3.8 * cm, 4.4 * cm])  # 总宽度19cm，与表头完全一致
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])  # 总宽度19cm，与表头完全一致
                 timeline_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
@@ -693,8 +694,210 @@ class PDFGenerator:
             traceback.print_exc()
             return None
 
+    def build_header_block_procurement(self):
+        """公司信息表头 - 三方比价单版本"""
+        # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+
+        # 准备 Logo 图（放在第一行最左侧单元格）
+        logo_cell = ""
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+            if os.path.exists(logo_path):
+                # 控制在表格中的显示尺寸（高度约 14pt，与之前一致）
+                logo_cell = Image(logo_path, width=100, height=14)
+                logo_cell.hAlign = 'LEFT'
+            else:
+                logo_cell = ""
+        except Exception:
+            logo_cell = ""
+
+        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
+        company_data = [
+            [logo_cell, Paragraph("上海硼矩新材料科技有限公司", sty_big)],
+            ["", Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
+            ["", Paragraph("三方比价单", sty_big)]  # 修改为三方比价单
+        ]
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return company_tbl
+
+    def build_procurement_requirement_table(self, form_data: Dict[str, Any], applicant_name: str, department_name: str) -> Table:
+        """构建采购需求表格"""
+        # 获取表单数据
+        category = form_data.get('采购类别', '')
+        material_description = form_data.get('物料描述/服务', '')  # 修正字段名
+        procurement_requirement = form_data.get('请购理由', '')  # 修正字段名
+        
+        # 构建表格数据
+        table_data = [
+            [self.create_wrapped_text('采购需求表')],
+            ['需求部门', department_name, '需求人员', applicant_name],
+            ['采购类别', category, '物料描述/服务', material_description],
+            ['请购理由', procurement_requirement, '', '']
+        ]
+        
+        tbl = Table(self.process_table_data_for_pdf(table_data),
+                   colWidths=[3.0 * cm, 5.0 * cm, 3.0 * cm, 8.0 * cm])
+        tbl.setStyle(TableStyle([
+            ('SPAN', (0, 0), (-1, 0)),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('BACKGROUND', (0, 1), (0, 1), colors.lightgrey),
+            ('BACKGROUND', (2, 1), (2, 1), colors.lightgrey),
+            ('BACKGROUND', (0, 2), (0, 2), colors.lightgrey),
+            ('BACKGROUND', (2, 2), (2, 2), colors.lightgrey),
+            ('BACKGROUND', (0, 3), (0, 3), colors.lightgrey),
+            ('SPAN', (1, 3), (-1, 3)),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+            ('FONTSIZE', (0, 0), (-1, 0), 7),
+            ('FONTSIZE', (0, 1), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return tbl
+
+    def build_three_way_comparison_table(self, form_data: Dict[str, Any]) -> Table:
+        """构建三方比价表格"""
+        headers = ['序号', '供应商名称', '规格型号', '价格', '备注']
+        table_data = [[self.create_wrapped_text('三方比价表')], headers]
+        
+        # 从表单数据中获取三方比价信息
+        three_way_comparison = form_data.get('三方比价', [])
+        if three_way_comparison and isinstance(three_way_comparison, list):
+            for idx, supplier_data in enumerate(three_way_comparison, 1):
+                if isinstance(supplier_data, list):
+                    # 处理fieldList格式的数据
+                    supplier_name = ''
+                    spec_model = ''
+                    price = ''
+                    
+                    for item in supplier_data:
+                        if isinstance(item, dict):
+                            if item.get('name') == '供应商名称':
+                                supplier_name = item.get('value', '')
+                            elif item.get('name') == '规格型号':
+                                spec_model = item.get('value', '')
+                            elif item.get('name') == '价格':
+                                price_value = item.get('value', '')
+                                price_ext = item.get('ext', {})
+                                currency = price_ext.get('currency', 'CNY')
+                                if price_value:
+                                    try:
+                                        if currency == 'CNY':
+                                            price = f"¥{int(price_value):,}"
+                                        elif currency == 'USD':
+                                            price = f"${int(price_value):,}"
+                                        elif currency == 'EUR':
+                                            price = f"€{int(price_value):,}"
+                                        else:
+                                            price = f"{currency} {int(price_value):,}"
+                                    except:
+                                        price = str(price_value)
+                    
+                    table_data.append([str(idx), supplier_name, spec_model, price, ''])
+                elif isinstance(supplier_data, dict):
+                    # 处理字典格式的数据
+                    supplier_name = supplier_data.get('供应商名称', '')
+                    spec_model = supplier_data.get('规格型号', '')
+                    price_value = supplier_data.get('价格', '')
+                    price_ext = supplier_data.get('价格_ext', {})
+                    currency = price_ext.get('currency', 'CNY')
+                    if price_value:
+                        try:
+                            if currency == 'CNY':
+                                price = f"¥{int(price_value):,}"
+                            elif currency == 'USD':
+                                price = f"${int(price_value):,}"
+                            elif currency == 'EUR':
+                                price = f"€{int(price_value):,}"
+                            else:
+                                price = f"{currency} {int(price_value):,}"
+                        except:
+                            price = str(price_value)
+                    else:
+                        price = ''
+                    
+                    table_data.append([str(idx), supplier_name, spec_model, price, ''])
+        else:
+            # 如果没有数据，添加空行供填写
+            for i in range(3):
+                table_data.append([str(i+1), '', '', '', ''])
+        
+        tbl = Table(self.process_table_data_for_pdf(table_data),
+                   colWidths=[2.0 * cm, 4.0 * cm, 4.0 * cm, 3.0 * cm, 6.0 * cm])
+        tbl.setStyle(TableStyle([
+            ('SPAN', (0, 0), (-1, 0)),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+            ('FONTSIZE', (0, 1), (-1, 1), 7),
+            ('FONTSIZE', (0, 2), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return tbl
+
+    def build_procurement_opinion_table(self, form_data: Dict[str, Any]) -> Table:
+        """构建采购意见表格"""
+        # 从表单数据中获取采购意见
+        procurement_opinion = form_data.get('采购意见', '')
+        
+        # 构建表格数据
+        table_data = [
+            ['采购意见', procurement_opinion]
+        ]
+        
+        tbl = Table(self.process_table_data_for_pdf(table_data),
+                   colWidths=[3.0 * cm, 16.0 * cm])
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, 0), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return tbl
+
     def generate_three_way_comparison_pdf(self, approval_detail: Dict[str, Any]) -> str:
-        """生成三方比价审批PDF报告（占位实现）"""
+        """生成三方比价审批PDF报告"""
         try:
             # 注册中文字体
             self.register_chinese_fonts()
@@ -705,69 +908,91 @@ class PDFGenerator:
             output_filename = f"三方比价审批报告_{instance_code}_{current_time}.pdf"
             
             # 创建PDF文档
-            doc = SimpleDocTemplate(output_filename, pagesize=A4)
+            doc = SimpleDocTemplate(
+                output_filename,
+                pagesize=A4,
+                topMargin=0.2 * cm,
+                rightMargin=1 * cm,
+                bottomMargin=1 * cm,
+                leftMargin=1 * cm
+            )
             story = []
             
-            # 获取样式
-            styles = getSampleStyleSheet()
+            # 1. 公司信息表头
+            story.append(self.build_header_block_procurement())
+            story.append(Spacer(1, 5))
             
-            # 创建自定义样式
-            title_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
-                fontSize=18,
-                spaceAfter=30,
-                alignment=1,  # 居中
-                textColor=colors.darkblue,
-                fontName="ChineseFont"
-            )
-            
-            normal_style = ParagraphStyle(
-                'CustomNormal',
-                parent=styles['Normal'],
-                fontSize=10,
-                spaceAfter=6,
-                fontName="ChineseFont"
-            )
-            
-            # 添加标题
-            story.append(Paragraph(f"三方比价审批报告（实时生成）", title_style))
-            story.append(Paragraph(f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", normal_style))
-            story.append(Spacer(1, 20))
-            
-            # 基本信息 - 实时获取
+            # 2. 审批信息（审批编号和申请时间）
             applicant_info = self.employee_manager.get_employee_info_realtime(approval_detail.get('open_id', ''))
             applicant_name = applicant_info["name"]
             department_name = self.feishu_api.get_department_name(approval_detail.get('department_id', ''))
             start_time_formatted = self.format_time_without_timezone(approval_detail.get('start_time', ''))
             
-            basic_info = [
-                ['申请单号', approval_detail.get('serial_number', 'N/A')],
-                ['申请人', applicant_name],
-                ['申请部门', department_name],
-                ['申请时间', start_time_formatted],
-                ['审批类型', '三方比价']
-            ]
+            story.append(self.build_approval_info_block(
+                approval_detail.get('serial_number', 'N/A'),
+                start_time_formatted
+            ))
+            story.append(Spacer(1, 8))
             
-            basic_table = Table(self.process_table_data_for_pdf(basic_info), colWidths=[3*cm, 8*cm])
-            basic_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ("FONTNAME", (0, 0), (-1, 0), "ChineseFont"),
-                ("FONTNAME", (0, 1), (-1, -1), "ChineseFont"),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-                ('BACKGROUND', (1, 0), (1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
+            # 3. 采购需求表格
+            form_data = self.parse_form_data(approval_detail.get('form', '[]'))
+            procurement_requirement_table = self.build_procurement_requirement_table(form_data, applicant_name, department_name)
+            story.append(procurement_requirement_table)
+            story.append(Spacer(1, 10))
             
-            story.append(basic_table)
-            story.append(Spacer(1, 15))
+            # 4. 三方比价表格
+            three_way_comparison_table = self.build_three_way_comparison_table(form_data)
+            story.append(three_way_comparison_table)
+            story.append(Spacer(1, 10))
             
-            # 占位内容
-            story.append(Paragraph("【三方比价详情】", ParagraphStyle('Heading', parent=styles['Heading2'], fontSize=14, spaceAfter=12, textColor=colors.darkblue, fontName="ChineseFont")))
-            story.append(Paragraph("此部分为三方比价审批的详细内容，具体实现待完善。", normal_style))
+            # 5. 采购意见表格
+            procurement_opinion_table = self.build_procurement_opinion_table(form_data)
+            story.append(procurement_opinion_table)
+            story.append(Spacer(1, 10))
+            
+            # 6. 审批进程表格
+            timeline = approval_detail.get("timeline", [])
+            task_list = approval_detail.get("task_list", [])
+            if timeline:
+                timeline_table = self.format_timeline_table(timeline, task_list)
+                
+                # 处理签名图片
+                modified_timeline_data = []
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理意见', '处理时间']
+                modified_timeline_data.append(timeline_headers)
+                
+                for row in timeline_table:
+                    processor_name = row[2]
+                    signature_path = self.employee_manager.get_signature_image_path(processor_name)
+                    
+                    if signature_path:
+                        try:
+                            signature_img = Image(signature_path, width=24, height=10)
+                            modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
+                        except Exception as e:
+                            print(f"签名图加载失败: {e}")
+                            modified_timeline_data.append(row)
+                    else:
+                        modified_timeline_data.append(row)
+                
+                timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])
+                timeline_tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7),
+                    ('FONTSIZE', (0, 1), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                ]))
+                story.append(timeline_tbl)
             
             # 生成PDF
             doc.build(story)
@@ -1170,7 +1395,7 @@ class PDFGenerator:
                 
                 # 处理签名图片
                 modified_timeline_data = []
-                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理意见', '处理时间']
                 modified_timeline_data.append(timeline_headers)
                 
                 for row in timeline_table:
@@ -1188,7 +1413,7 @@ class PDFGenerator:
                         modified_timeline_data.append(row)
                 
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
-                                     colWidths=[2.5 * cm, 3.8 * cm, 4.5 * cm, 3.8 * cm, 4.4 * cm])
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])
                 timeline_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
@@ -1343,7 +1568,7 @@ class PDFGenerator:
                 
                 # 处理签名图片
                 modified_timeline_data = []
-                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果',  '处理意见','处理时间']
                 modified_timeline_data.append(timeline_headers)
                 
                 for row in timeline_table:
@@ -1362,7 +1587,7 @@ class PDFGenerator:
                         modified_timeline_data.append(row)
                 
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
-                                     colWidths=[2.5 * cm, 3.8 * cm, 4.5 * cm, 3.8 * cm, 4.4 * cm])  # 总宽度19cm，与表头完全一致
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])  # 总宽度19cm，与表头完全一致
                 timeline_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),

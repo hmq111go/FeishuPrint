@@ -646,7 +646,7 @@ class PDFGenerator:
                 
                 # 处理签名图片
                 modified_timeline_data = []
-                timeline_headers = ['序号', '节点名称', '处理人', '处理结果','处理意见', '处理时间']
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
                 modified_timeline_data.append(timeline_headers)
                 
                 for row in timeline_table:
@@ -657,16 +657,19 @@ class PDFGenerator:
                     if signature_path:
                         try:
                             signature_img = Image(signature_path, width=24, height=10)
-                            modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
+                            # 移除处理意见列（第4列），保留：序号、节点名称、处理人、处理结果、处理时间
+                            modified_timeline_data.append(row[:2] + [signature_img] + row[3:4] + row[5:])
                         except Exception as e:
                             print(f"签名图加载失败: {e}")
-                            modified_timeline_data.append(row)
+                            # 移除处理意见列（第4列）
+                            modified_timeline_data.append(row[:4] + row[5:])
                     else:
-                        modified_timeline_data.append(row)
+                        # 移除处理意见列（第4列）
+                        modified_timeline_data.append(row[:4] + row[5:])
                 
                 # 创建单个审批进程表格
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
-                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])  # 总宽度19cm，与表头完全一致
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 7.5 * cm])  # 总宽度19cm，移除处理意见列后调整列宽
                 timeline_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),

@@ -785,7 +785,7 @@ class PDFGenerator:
                     
                     if signature_path:
                         try:
-                            signature_img = Image(signature_path, width=24, height=10)
+                            signature_img = Image(signature_path, width=36, height=15)
                             # 移除处理意见列（第4列），保留：序号、节点名称、处理人、处理结果、处理时间
                             modified_timeline_data.append(row[:2] + [signature_img] + row[3:4] + row[5:])
                         except Exception as e:
@@ -1101,7 +1101,7 @@ class PDFGenerator:
                     
                     if signature_path:
                         try:
-                            signature_img = Image(signature_path, width=24, height=10)
+                            signature_img = Image(signature_path, width=36, height=15)
                             modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
                         except Exception as e:
                             print(f"签名图加载失败: {e}")
@@ -1453,7 +1453,7 @@ class PDFGenerator:
                     
                     if signature_path:
                         try:
-                            signature_img = Image(signature_path, width=24, height=10)
+                            signature_img = Image(signature_path, width=36, height=15)
                             modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
                         except Exception as e:
                             print(f"签名图加载失败: {e}")
@@ -1628,7 +1628,7 @@ class PDFGenerator:
                     
                     if signature_path:
                         try:
-                            signature_img = Image(signature_path, width=24, height=10)
+                            signature_img = Image(signature_path, width=36, height=15)
                             modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
                         except Exception as e:
                             print(f"签名图加载失败: {e}")

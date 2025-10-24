@@ -4,6 +4,7 @@ PDF生成模块
 负责不同类型审批的PDF报告生成
 """
 import os
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Union
 
@@ -17,16 +18,146 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 from employee_manager import EmployeeManager
 from feishu_api import FeishuAPI
+from auto_printer import AutoPrinter
 
 
 class PDFGenerator:
     """PDF生成器"""
     
-    def __init__(self, feishu_api: FeishuAPI, employee_manager: EmployeeManager):
+    def __init__(self, feishu_api: FeishuAPI, employee_manager: EmployeeManager, auto_print: bool = True):
         self.feishu_api = feishu_api
         self.employee_manager = employee_manager
+        self.auto_print = auto_print
+        self.logger = logging.getLogger(__name__)
+        
         # 使用中国时区 UTC+8
         self.local_tz = timezone(timedelta(hours=8))
+        
+        # 创建PDF存储目录
+        self.pdf_base_dir = "pdf_reports"
+        self.pdf_directories = {
+            "采购申请": "procurement",
+            "三方比价": "three_way_comparison", 
+            "固定资产": "fixed_asset",
+            "费用报销": "expense_reimbursement"
+        }
+        self._ensure_directories_exist()
+        
+        # 初始化自动打印器
+        if self.auto_print:
+            self.auto_printer = AutoPrinter()
+            self.logger.info("自动打印功能已启用")
+        else:
+            self.auto_printer = None
+            self.logger.info("自动打印功能已禁用")
+    
+    def _ensure_directories_exist(self):
+        """确保PDF存储目录存在"""
+        # 创建基础目录
+        os.makedirs(self.pdf_base_dir, exist_ok=True)
+        
+        # 创建各类PDF的子目录
+        for approval_type, dir_name in self.pdf_directories.items():
+            dir_path = os.path.join(self.pdf_base_dir, dir_name)
+            os.makedirs(dir_path, exist_ok=True)
+    
+    def _generate_pdf_filename(self, approval_type: str, approval_detail: Dict[str, Any]) -> str:
+        """生成PDF文件名（简化版，不包含instance_code）"""
+        # 获取申请人信息
+        applicant_info = self.employee_manager.get_employee_info_realtime(approval_detail.get('open_id', ''))
+        applicant_name = applicant_info.get("name", "未知申请人")
+        
+        # 获取申请时间
+        start_time = approval_detail.get('start_time', '')
+        if start_time:
+            try:
+                # 解析时间戳
+                timestamp = int(start_time) / 1000  # 转换为秒
+                dt = datetime.fromtimestamp(timestamp, tz=self.local_tz)
+                date_str = dt.strftime("%Y%m%d")
+            except:
+                date_str = datetime.now().strftime("%Y%m%d")
+        else:
+            date_str = datetime.now().strftime("%Y%m%d")
+        
+        # 生成时间戳（避免重名）
+        current_time = datetime.now().strftime("%H%M%S")
+        
+        # 生成文件名
+        filename = f"{applicant_name}_{date_str}_{current_time}.pdf"
+        
+        # 获取对应的目录
+        dir_name = self.pdf_directories.get(approval_type, "other")
+        dir_path = os.path.join(self.pdf_base_dir, dir_name)
+        
+        # 返回完整路径
+        return os.path.join(dir_path, filename)
+    
+    def _print_and_rename_pdf(self, pdf_path: str) -> str:
+        """
+        打印PDF并重命名文件添加已打印标识
+        
+        Args:
+            pdf_path: PDF文件路径
+            
+        Returns:
+            重命名后的文件路径
+        """
+        if not self.auto_print or not self.auto_printer:
+            return pdf_path
+        
+        try:
+            # 打印PDF
+            self.logger.info(f"开始打印PDF: {pdf_path}")
+            success, message = self.auto_printer.print_pdf(pdf_path)
+            
+            if success:
+                self.logger.info(f"PDF打印成功: {message}")
+                
+                # 等待打印完成
+                if self.auto_printer.wait_for_print_completion():
+                    # 重命名文件，添加已打印标识
+                    renamed_path = self._add_printed_suffix(pdf_path)
+                    self.logger.info(f"PDF已重命名为: {renamed_path}")
+                    return renamed_path
+                else:
+                    self.logger.warning("打印可能未完成，但文件已生成")
+                    return pdf_path
+            else:
+                self.logger.error(f"PDF打印失败: {message}")
+                return pdf_path
+                
+        except Exception as e:
+            self.logger.error(f"打印PDF时发生异常: {e}")
+            return pdf_path
+    
+    def _add_printed_suffix(self, pdf_path: str) -> str:
+        """
+        为PDF文件名添加已打印标识
+        
+        Args:
+            pdf_path: 原始PDF文件路径
+            
+        Returns:
+            重命名后的文件路径
+        """
+        try:
+            # 分离文件名和扩展名
+            dir_path = os.path.dirname(pdf_path)
+            filename = os.path.basename(pdf_path)
+            name, ext = os.path.splitext(filename)
+            
+            # 添加已打印标识
+            new_filename = f"{name}_已打印{ext}"
+            new_path = os.path.join(dir_path, new_filename)
+            
+            # 重命名文件
+            os.rename(pdf_path, new_path)
+            return new_path
+            
+        except Exception as e:
+            self.logger.error(f"重命名PDF文件失败: {e}")
+            return pdf_path
     
     def register_chinese_fonts(self):
         """注册中文字体"""
@@ -509,10 +640,8 @@ class PDFGenerator:
             # 注册中文字体
             self.register_chinese_fonts()
             
-            # 生成PDF文件名
-            instance_code = approval_detail.get('instance_code', 'unknown')
-            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"采购申请审批报告_{instance_code}_{current_time}.pdf"
+            # 生成PDF文件名（使用新的命名规则和目录结构）
+            output_filename = self._generate_pdf_filename("采购申请", approval_detail)
             
             # 创建PDF文档 - 采用generate_pdf_report的页面设置
             doc = SimpleDocTemplate(
@@ -690,7 +819,10 @@ class PDFGenerator:
             # 生成PDF
             doc.build(story)
             print(f"采购申请PDF报告已生成: {output_filename}")
-            return output_filename
+            
+            # 自动打印并重命名
+            final_filename = self._print_and_rename_pdf(output_filename)
+            return final_filename
             
         except Exception as e:
             print(f"生成采购申请PDF失败: {e}")
@@ -906,10 +1038,8 @@ class PDFGenerator:
             # 注册中文字体
             self.register_chinese_fonts()
             
-            # 生成PDF文件名
-            instance_code = approval_detail.get('instance_code', 'unknown')
-            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"三方比价审批报告_{instance_code}_{current_time}.pdf"
+            # 生成PDF文件名（使用新的命名规则和目录结构）
+            output_filename = self._generate_pdf_filename("三方比价", approval_detail)
             
             # 创建PDF文档
             doc = SimpleDocTemplate(
@@ -1001,7 +1131,10 @@ class PDFGenerator:
             # 生成PDF
             doc.build(story)
             print(f"三方比价PDF报告已生成: {output_filename}")
-            return output_filename
+            
+            # 自动打印并重命名
+            final_filename = self._print_and_rename_pdf(output_filename)
+            return final_filename
             
         except Exception as e:
             print(f"生成三方比价PDF失败: {e}")
@@ -1252,10 +1385,8 @@ class PDFGenerator:
             # 注册中文字体
             self.register_chinese_fonts()
             
-            # 生成PDF文件名
-            instance_code = approval_detail.get('instance_code', 'unknown')
-            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"固定资产验收审批报告_{instance_code}_{current_time}.pdf"
+            # 生成PDF文件名（使用新的命名规则和目录结构）
+            output_filename = self._generate_pdf_filename("固定资产", approval_detail)
             
             # 创建PDF文档
             doc = SimpleDocTemplate(
@@ -1366,10 +1497,8 @@ class PDFGenerator:
             # 注册中文字体
             self.register_chinese_fonts()
             
-            # 生成PDF文件名
-            instance_code = approval_detail.get('instance_code', 'unknown')
-            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"费用报销审批报告_{instance_code}_{current_time}.pdf"
+            # 生成PDF文件名（使用新的命名规则和目录结构）
+            output_filename = self._generate_pdf_filename("费用报销", approval_detail)
             
             # 创建PDF文档 - 采用与采购申请相同的页面设置
             doc = SimpleDocTemplate(

@@ -365,18 +365,19 @@ def main():
 
         # 以员工姓名+原文件后缀命名
         new_filename = f"{employee_name}{file_extension}"
+        signature_path = os.path.join("signatures", new_filename)
 
         # 下载文件
-        if download_file(tenant_access_token, file_url, new_filename):
+        if download_file(tenant_access_token, file_url, signature_path):
             processed_count += 1
         else:
             skipped_count += 1
 
     # 保存员工姓名-ID映射为JSON文件
     try:
-        with open("employee_mapping.json", "w", encoding="utf-8") as f:
+        with open("data/employee_mapping.json", "w", encoding="utf-8") as f:
             json.dump(employee_mapping, f, ensure_ascii=False, indent=2)
-        print(f"员工姓名-ID映射已保存到 employee_mapping.json")
+        print(f"员工姓名-ID映射已保存到 data/employee_mapping.json")
     except Exception as e:
         print(f"ERROR: 保存员工映射文件失败: {e}", file=sys.stderr)
 

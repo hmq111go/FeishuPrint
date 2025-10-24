@@ -6,6 +6,7 @@
 import json
 import os
 import sys
+import logging
 from typing import Any, Dict, List, Tuple, Optional
 import requests
 import urllib.parse
@@ -18,6 +19,7 @@ class FeishuAPI:
         self.app_id = app_id
         self.app_secret = app_secret
         self.tenant_token = None
+        self.logger = logging.getLogger(__name__)
     
     def get_tenant_access_token(self) -> Tuple[str, Exception]:
         """获取 tenant_access_token"""
@@ -30,32 +32,32 @@ class FeishuAPI:
             "Content-Type": "application/json; charset=utf-8"
         }
         try:
-            print(f"Request body: {json.dumps(payload)}")
+            self.logger.debug(f"Request body: {json.dumps(payload)}")
             response = requests.post(url, json=payload, headers=headers)
             response.raise_for_status()
 
             result = response.json()
-            print(f"Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
+            self.logger.debug(f"Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
 
             if result.get("code", 0) != 0:
-                print(f"Error: failed to get tenant_access_token: {result.get('msg', 'unknown error')}", file=sys.stderr)
+                self.logger.error(f"Error: failed to get tenant_access_token: {result.get('msg', 'unknown error')}")
                 return "", Exception(f"failed to get tenant_access_token: {response.text}")
 
             access_token = result["tenant_access_token"]
             self.tenant_token = access_token
-            print(f"获取 tenant_access_token 成功: {access_token[:10]}...")
+            self.logger.info(f"获取 tenant_access_token 成功: {access_token[:10]}...")
             return access_token, None
 
         except Exception as e:
-            print(f"Error: getting tenant_access_token: {e}", file=sys.stderr)
+            self.logger.error(f"Error: getting tenant_access_token: {e}")
             if hasattr(e, 'response') and e.response is not None:
-                print(f"Response body: {e.response.text}", file=sys.stderr)
+                self.logger.error(f"Response body: {e.response.text}")
             return "", e
 
     def subscribe_approval_event(self, approval_code: str) -> bool:
         """订阅审批事件"""
         if not self.tenant_token:
-            print("Error: tenant_token not available")
+            self.logger.error("Error: tenant_token not available")
             return False
             
         url = f"https://open.feishu.cn/open-apis/approval/v4/approvals/{approval_code}/subscribe"
@@ -65,26 +67,26 @@ class FeishuAPI:
         }
 
         try:
-            print(f"POST: {url}")
+            self.logger.debug(f"POST: {url}")
             response = requests.post(url, headers=headers)
             result = response.json()
-            print(f"Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
+            self.logger.debug(f"Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
 
             if result.get("code") == 0:
-                print("订阅审批事件成功")
+                self.logger.info("订阅审批事件成功")
                 return True
             elif result.get("code") == 1390007:  # subscription existed
-                print("审批事件已订阅，无需重复操作")
+                self.logger.info("审批事件已订阅，无需重复操作")
                 return True
             else:
-                print(f"ERROR: subscribing approval event: {result.get('msg', 'unknown error')}", file=sys.stderr)
-                print(f"ERROR: Response body: {json.dumps(result, ensure_ascii=False)}", file=sys.stderr)
+                self.logger.error(f"ERROR: subscribing approval event: {result.get('msg', 'unknown error')}")
+                self.logger.error(f"ERROR: Response body: {json.dumps(result, ensure_ascii=False)}")
                 return False
 
         except Exception as e:
-            print(f"ERROR: subscribing approval event: {e}", file=sys.stderr)
+            self.logger.error(f"ERROR: subscribing approval event: {e}")
             if hasattr(e, 'response') and e.response is not None:
-                print(f"ERROR: Response body: {e.response.text}", file=sys.stderr)
+                self.logger.error(f"ERROR: Response body: {e.response.text}")
             return False
 
     def fetch_approval_instance_detail(self, instance_id: str) -> Dict[str, Any]:
@@ -97,11 +99,11 @@ class FeishuAPI:
             "Authorization": f"Bearer {self.tenant_token}",
             "Content-Type": "application/json; charset=utf-8",
         }
-        print(f"GET: {url}")
+        self.logger.debug(f"GET: {url}")
         response = requests.get(url, headers=headers, timeout=20)
         response.raise_for_status()
         result = response.json()
-        print(f"Response for instance {instance_id}: {json.dumps(result, ensure_ascii=False)}")
+        self.logger.debug(f"Response for instance {instance_id}: {json.dumps(result, ensure_ascii=False)}")
         if result.get("code", 0) != 0:
             raise RuntimeError(
                 f"Feishu error fetching instance detail: code={result.get('code')} msg={result.get('msg')}"
@@ -129,7 +131,7 @@ class FeishuAPI:
         params = {"department_id_type": department_id_type}
 
         try:
-            print(f"获取部门信息: {department_id} (类型: {department_id_type})")
+            self.logger.debug(f"获取部门信息: {department_id} (类型: {department_id_type})")
             response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             data = response.json()
@@ -137,12 +139,12 @@ class FeishuAPI:
             if data.get("code") == 0:
                 department = data.get("data", {}).get("department", {})
                 department_name = department.get("name", "未知部门")
-                print(f"部门信息获取成功: {department_id} -> {department_name}")
+                self.logger.debug(f"部门信息获取成功: {department_id} -> {department_name}")
                 return department_name
             else:
-                print(f"获取部门信息失败 ({department_id}): {data.get('msg', '未知错误')}")
+                self.logger.warning(f"获取部门信息失败 ({department_id}): {data.get('msg', '未知错误')}")
         except Exception as e:
-            print(f"获取部门信息失败 ({department_id}): {e}")
+            self.logger.warning(f"获取部门信息失败 ({department_id}): {e}")
 
         return "未知部门"
 
@@ -158,22 +160,22 @@ class FeishuAPI:
         }
 
         try:
-            print(f"GET: {url}")
+            self.logger.debug(f"GET: {url}")
             response = requests.get(url, headers=headers)
             response.raise_for_status()
 
             result = response.json()
-            print(f"Response: {json.dumps(result)}")
+            self.logger.debug(f"Response: {json.dumps(result)}")
 
             if result.get("code", 0) != 0:
-                print(f"ERROR: 获取知识空间节点信息失败 {result}", file=sys.stderr)
+                self.logger.error(f"ERROR: 获取知识空间节点信息失败 {result}")
                 raise Exception(f"failed to get wiki node info: {result.get('msg', 'unknown error')}")
 
             if not result.get("data") or not result["data"].get("node"):
                 raise Exception("未获取到节点信息")
 
             node_info = result["data"]["node"]
-            print("节点信息获取成功:", {
+            self.logger.debug("节点信息获取成功:", {
                 "node_token": node_info.get("node_token"),
                 "obj_type": node_info.get("obj_type"),
                 "obj_token": node_info.get("obj_token"),
@@ -182,7 +184,7 @@ class FeishuAPI:
             return node_info
 
         except Exception as e:
-            print(f"ERROR: getting wiki node info: {e}", file=sys.stderr)
+            self.logger.error(f"ERROR: getting wiki node info: {e}")
             raise
 
     def parse_base_url(self, base_url_string: str) -> Dict[str, Optional[str]]:
@@ -226,15 +228,15 @@ class FeishuAPI:
             if page_token:
                 params["page_token"] = page_token
 
-            print(f"GET: {url} with params: {params}")
+            self.logger.debug(f"GET: {url} with params: {params}")
             response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
 
             result = response.json()
-            print(f"Response: {json.dumps(result)}")
+            self.logger.debug(f"Response: {json.dumps(result)}")
 
             if result.get("code", 0) != 0:
-                print(f"ERROR: 列出数据表失败: {result}", file=sys.stderr)
+                self.logger.error(f"ERROR: 列出数据表失败: {result}")
                 raise Exception(f"failed to list tables: {result.get('msg', 'unknown error')}")
 
             data = result.get("data", {})
@@ -271,16 +273,16 @@ class FeishuAPI:
             if page_token:
                 payload["page_token"] = page_token
 
-            print(f"POST: {url}")
-            print(f"Request body: {json.dumps(payload)}")
+            self.logger.debug(f"POST: {url}")
+            self.logger.debug(f"Request body: {json.dumps(payload)}")
             response = requests.post(url, json=payload, headers=headers)
             response.raise_for_status()
 
             result = response.json()
-            print(f"Response: {json.dumps(result)}")
+            self.logger.debug(f"Response: {json.dumps(result)}")
 
             if result.get("code", 0) != 0:
-                print(f"ERROR: 查询记录失败: {result}", file=sys.stderr)
+                self.logger.error(f"ERROR: 查询记录失败: {result}")
                 raise Exception(f"failed to search records: {result.get('msg', 'unknown error')}")
 
             data = result.get("data", {})
@@ -303,16 +305,16 @@ class FeishuAPI:
         }
 
         try:
-            print(f"Downloading file from: {file_url} to: {filename}")
+            self.logger.debug(f"Downloading file from: {file_url} to: {filename}")
             response = requests.get(file_url, headers=headers)
             response.raise_for_status()
 
             with open(filename, "wb") as f:
                 f.write(response.content)
 
-            print(f"File downloaded successfully: {filename}")
+            self.logger.info(f"File downloaded successfully: {filename}")
             return True
 
         except Exception as e:
-            print(f"ERROR: Failed to download file {filename}: {e}", file=sys.stderr)
+            self.logger.error(f"ERROR: Failed to download file {filename}: {e}")
             return False

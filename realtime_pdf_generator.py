@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import time
+import logging
 from typing import Dict, Any, Set
 
 import lark_oapi as lark
@@ -21,6 +22,15 @@ class RealtimePDFGenerator:
     """实时PDF生成器主类"""
     
     def __init__(self, app_id: str, app_secret: str, employee_base_url: str):
+        # 配置日志
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.StreamHandler(sys.stdout)
+            ]
+        )
+        self.logger = logging.getLogger(__name__)
         self.app_id = app_id
         self.app_secret = app_secret
         self.employee_base_url = employee_base_url
@@ -66,7 +76,7 @@ class RealtimePDFGenerator:
         
         # 检查是否已处理过此实例
         if instance_code in self.processed_instances:
-            print(f"[事件去重] 审批实例 {instance_code} 已在去重窗口内处理过，忽略重复事件")
+            self.logger.debug(f"[事件去重] 审批实例 {instance_code} 已在去重窗口内处理过，忽略重复事件")
             return True
         
         # 记录处理时间和实例
@@ -80,7 +90,7 @@ class RealtimePDFGenerator:
         event_data = lark.JSON.marshal(data, indent=4)
         event_dict = json.loads(event_data)
 
-        print(f"[审批事件接收] 原始事件数据: {event_data}")
+        self.logger.debug(f"[审批事件接收] 原始事件数据: {event_data}")
 
         # 提取事件信息
         if event_dict:
@@ -89,7 +99,7 @@ class RealtimePDFGenerator:
             approval_code = event_dict.get("event", {}).get("approval_code", "")
             operate_time = event_dict.get("event", {}).get("operate_time", "")
 
-            print(f"[审批事件处理] 审批状态: {status}, 实例Code: {instance_code}, 审批定义Code: {approval_code}")
+            self.logger.info(f"[审批事件处理] 审批状态: {status}, 实例Code: {instance_code}, 审批定义Code: {approval_code}")
 
             # 处理审批通过事件
             if status == "APPROVED":
@@ -101,14 +111,14 @@ class RealtimePDFGenerator:
                 
                 # 获取审批类型
                 approval_type = self.get_approval_type_name(approval_code)
-                print(f"[审批通过] 审批实例 {instance_code} 已通过审批，审批类型: {approval_type}，开始生成PDF...")
+                self.logger.info(f"[审批通过] 审批实例 {instance_code} 已通过审批，审批类型: {approval_type}，开始生成PDF...")
                 
                 try:
                     # 确保有有效的tenant_token
                     if not self.feishu_api.tenant_token:
                         tenant_token, err = self.feishu_api.get_tenant_access_token()
                         if err:
-                            print(f"获取tenant_access_token失败: {err}")
+                            self.logger.error(f"获取tenant_access_token失败: {err}")
                             return
                     else:
                         tenant_token = self.feishu_api.tenant_token
@@ -116,7 +126,7 @@ class RealtimePDFGenerator:
                     # 获取审批实例详情
                     instance_id = event_dict.get("event", {}).get("instance_code", "")
                     if not instance_id:
-                        print("未找到实例ID，无法获取详情")
+                        self.logger.error("未找到实例ID，无法获取详情")
                         return
                     
                     approval_detail = self.feishu_api.fetch_approval_instance_detail(instance_id)
@@ -132,75 +142,75 @@ class RealtimePDFGenerator:
                     elif approval_type == "费用报销":
                         pdf_filename = self.pdf_generator.generate_expense_reimbursement_pdf(approval_detail)
                     else:
-                        print(f"[PDF生成失败] 未知的审批类型: {approval_type}")
+                        self.logger.error(f"[PDF生成失败] 未知的审批类型: {approval_type}")
                         return
                     
                     if pdf_filename:
-                        print(f"[PDF生成成功] 审批实例 {instance_code} ({approval_type}) 的PDF报告已生成: {pdf_filename}")
+                        self.logger.info(f"[PDF生成成功] 审批实例 {instance_code} ({approval_type}) 的PDF报告已生成: {pdf_filename}")
                     else:
-                        print(f"[PDF生成失败] 审批实例 {instance_code} ({approval_type}) 的PDF报告生成失败")
+                        self.logger.error(f"[PDF生成失败] 审批实例 {instance_code} ({approval_type}) 的PDF报告生成失败")
                         
                 except Exception as e:
-                    print(f"[PDF生成异常] 处理审批实例 {instance_code} ({approval_type}) 时发生错误: {e}")
+                    self.logger.error(f"[PDF生成异常] 处理审批实例 {instance_code} ({approval_type}) 时发生错误: {e}")
                     import traceback
                     traceback.print_exc()
     
     def refresh_employee_data(self) -> bool:
         """刷新员工数据"""
-        print("=== 刷新员工数据 ===")
+        self.logger.info("=== 刷新员工数据 ===")
         return self.employee_manager.refresh_employee_mapping()
     
     def start(self):
         """启动实时PDF生成器"""
-        print("=== 实时PDF生成器 V2 启动 ===")
-        print("当审批通过时自动生成包含签名图片的PDF报告")
-        print("支持的审批类型:")
+        self.logger.info("=== 实时PDF生成器 V2 启动 ===")
+        self.logger.info("当审批通过时自动生成包含签名图片的PDF报告")
+        self.logger.info("支持的审批类型:")
         for approval_type, approval_code in self.approval_definitions.items():
-            print(f"  - {approval_type}: {approval_code}")
+            self.logger.info(f"  - {approval_type}: {approval_code}")
         
-        print(f"\n员工管理状态:")
+        self.logger.info(f"\n员工管理状态:")
         cache_stats = self.employee_manager.get_cache_stats()
-        print(f"  - 员工映射数量: {cache_stats['employee_mapping_count']}")
-        print(f"  - 签名图片数量: {cache_stats['signature_cache_count']}")
-        print(f"  - 实时缓存数量: {cache_stats['realtime_cache_count']}")
-        print(f"  - 缓存有效期: {cache_stats['cache_ttl']} 秒")
+        self.logger.info(f"  - 员工映射数量: {cache_stats['employee_mapping_count']}")
+        self.logger.info(f"  - 签名图片数量: {cache_stats['signature_cache_count']}")
+        self.logger.info(f"  - 实时缓存数量: {cache_stats['realtime_cache_count']}")
+        self.logger.info(f"  - 缓存有效期: {cache_stats['cache_ttl']} 秒")
         
-        print("\n=== 步骤1: 获取 tenant_access_token ===")
+        self.logger.info("\n=== 步骤1: 获取 tenant_access_token ===")
         tenant_access_token, err = self.feishu_api.get_tenant_access_token()
         if err:
-            print(f"Error: 获取 tenant_access_token 失败: {err}", file=sys.stderr)
+            self.logger.error(f"Error: 获取 tenant_access_token 失败: {err}")
             return False
 
-        print("\n=== 步骤2: 刷新员工数据 ===")
+        self.logger.info("\n=== 步骤2: 刷新员工数据 ===")
         if not self.refresh_employee_data():
-            print("警告: 员工数据刷新失败，将使用缓存数据", file=sys.stderr)
+            self.logger.warning("警告: 员工数据刷新失败，将使用缓存数据")
 
-        print("\n=== 步骤3: 订阅审批事件 ===")
+        self.logger.info("\n=== 步骤3: 订阅审批事件 ===")
         subscription_success = True
         for approval_type, approval_code in self.approval_definitions.items():
-            print(f"正在订阅 {approval_type} 审批事件...")
+            self.logger.info(f"正在订阅 {approval_type} 审批事件...")
             if not self.feishu_api.subscribe_approval_event(approval_code):
-                print(f"订阅 {approval_type} 审批事件失败", file=sys.stderr)
+                self.logger.error(f"订阅 {approval_type} 审批事件失败")
                 subscription_success = False
             else:
-                print(f"订阅 {approval_type} 审批事件成功")
+                self.logger.info(f"订阅 {approval_type} 审批事件成功")
         
         if not subscription_success:
-            print("部分审批事件订阅失败，但将继续启动WebSocket客户端...", file=sys.stderr)
+            self.logger.warning("部分审批事件订阅失败，但将继续启动WebSocket客户端...")
 
-        print("\n=== 步骤4: 注册事件处理函数 ===")
+        self.logger.info("\n=== 步骤4: 注册事件处理函数 ===")
         # 注册审批实例状态变更事件（支持V1和V2版本）
         event_handler = lark.EventDispatcherHandler.builder(self.app_id, self.app_secret) \
             .register_p1_customized_event("approval_instance", self.do_approval_instance_event) \
             .register_p1_customized_event("approval_instance_v2", self.do_approval_instance_event) \
             .build()
 
-        print("\n=== 步骤5: 启动 WebSocket 客户端 ===")
-        print("正在连接飞书事件推送服务...")
-        print("等待审批通过事件，将自动生成包含签名图片的PDF报告...")
+        self.logger.info("\n=== 步骤5: 启动 WebSocket 客户端 ===")
+        self.logger.info("正在连接飞书事件推送服务...")
+        self.logger.info("等待审批通过事件，将自动生成包含签名图片的PDF报告...")
         cli = lark.ws.Client(self.app_id, self.app_secret,
-                             event_handler=event_handler, log_level=lark.LogLevel.DEBUG)
-        print("WebSocket客户端已启动，等待接收审批事件...")
+                             event_handler=event_handler, log_level=lark.LogLevel.WARNING)
+        self.logger.info("WebSocket客户端已启动，等待接收审批事件...")
         cli.start()
         
         return True

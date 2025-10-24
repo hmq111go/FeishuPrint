@@ -25,7 +25,7 @@ class EmployeeManager:
     def _load_cached_mapping(self):
         """加载缓存的员工映射"""
         try:
-            mapping_file_path = os.path.join(os.path.dirname(__file__), "employee_mapping.json")
+            mapping_file_path = os.path.join(os.path.dirname(__file__), "data", "employee_mapping.json")
             if os.path.exists(mapping_file_path):
                 with open(mapping_file_path, 'r', encoding='utf-8') as f:
                     self.employee_mapping = json.load(f)
@@ -37,7 +37,7 @@ class EmployeeManager:
     def _save_mapping(self):
         """保存员工映射到文件"""
         try:
-            mapping_file_path = os.path.join(os.path.dirname(__file__), "employee_mapping.json")
+            mapping_file_path = os.path.join(os.path.dirname(__file__), "data", "employee_mapping.json")
             with open(mapping_file_path, 'w', encoding='utf-8') as f:
                 json.dump(self.employee_mapping, f, ensure_ascii=False, indent=2)
             print(f"员工映射已保存到 {mapping_file_path}")
@@ -119,7 +119,7 @@ class EmployeeManager:
                 
                 # 以员工姓名+原文件后缀命名
                 new_filename = f"{employee_name}{file_extension}"
-                signature_path = os.path.join(os.path.dirname(__file__), new_filename)
+                signature_path = os.path.join(os.path.dirname(__file__), "signatures", new_filename)
                 
                 # 下载文件
                 if self.feishu_api.download_file(file_url, signature_path):
@@ -180,7 +180,7 @@ class EmployeeManager:
         
         # 构建图片文件路径
         image_filename = f"{employee_name}.png"
-        image_path = os.path.join(os.path.dirname(__file__), image_filename)
+        image_path = os.path.join(os.path.dirname(__file__), "signatures", image_filename)
         
         # 检查文件是否存在
         if os.path.exists(image_path):
@@ -248,7 +248,7 @@ class EmployeeManager:
                                     file_extension = original_name[original_name.rfind("."):]
                                 
                                 new_filename = f"{employee_name}{file_extension}"
-                                signature_path = os.path.join(os.path.dirname(__file__), new_filename)
+                                signature_path = os.path.join(os.path.dirname(__file__), "signatures", new_filename)
                                 
                                 if self.feishu_api.download_file(file_url, signature_path):
                                     self.signature_cache[employee_name] = signature_path

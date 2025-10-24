@@ -1,5 +1,22 @@
 # 实时员工信息获取功能总结
 
+## 项目结构
+
+```
+FeishuPrint/
+├── data/                          # 数据文件目录
+│   └── employee_mapping.json     # 员工姓名-ID映射文件
+├── signatures/                    # 员工签名图片目录
+│   ├── 丁志刚.png
+│   ├── 付佳佳.png
+│   └── ... (其他员工签名图片)
+├── logo.png                      # 公司Logo
+├── employee_manager.py           # 员工管理模块
+├── employee.py                   # 员工信息获取脚本
+├── pdf_generator.py              # PDF生成器
+└── ... (其他项目文件)
+```
+
 ## 功能概述
 
 已成功实现员工信息的实时获取功能，确保每次PDF生成时都能获取到最新的员工姓名映射和签名图片，同时通过智能缓存机制优化性能。
@@ -52,7 +69,7 @@
    - 自动过期清理
    
 2. 员工映射缓存 (持久化)
-   - 存储在 employee_mapping.json
+   - 存储在 data/employee_mapping.json
    - 减少数据库查询次数
    
 3. 签名图片缓存 (本地文件)

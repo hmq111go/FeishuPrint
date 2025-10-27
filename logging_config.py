@@ -69,3 +69,4 @@ if __name__ == "__main__":
         print("无效选择，使用默认正常模式")
         set_normal_mode()
 
+

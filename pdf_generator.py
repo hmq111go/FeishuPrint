@@ -18,16 +18,16 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 from employee_manager import EmployeeManager
 from feishu_api import FeishuAPI
-from auto_printer import AutoPrinter
+from pdf_sender import PDFSender
 
 
 class PDFGenerator:
     """PDF生成器"""
     
-    def __init__(self, feishu_api: FeishuAPI, employee_manager: EmployeeManager, auto_print: bool = True):
+    def __init__(self, feishu_api: FeishuAPI, employee_manager: EmployeeManager, auto_send: bool = True):
         self.feishu_api = feishu_api
         self.employee_manager = employee_manager
-        self.auto_print = auto_print
+        self.auto_send = auto_send
         self.logger = logging.getLogger(__name__)
         
         # 使用中国时区 UTC+8
@@ -43,13 +43,13 @@ class PDFGenerator:
         }
         self._ensure_directories_exist()
         
-        # 初始化自动打印器
-        if self.auto_print:
-            self.auto_printer = AutoPrinter()
-            self.logger.info("自动打印功能已启用")
+        # 初始化PDF发送器
+        if self.auto_send:
+            self.pdf_sender = PDFSender(feishu_api.app_id, feishu_api.app_secret)
+            self.logger.info("自动发送功能已启用")
         else:
-            self.auto_printer = None
-            self.logger.info("自动打印功能已禁用")
+            self.pdf_sender = None
+            self.logger.info("自动发送功能已禁用")
     
     def _ensure_directories_exist(self):
         """确保PDF存储目录存在"""
@@ -93,47 +93,43 @@ class PDFGenerator:
         # 返回完整路径
         return os.path.join(dir_path, filename)
     
-    def _print_and_rename_pdf(self, pdf_path: str) -> str:
+    def _send_and_rename_pdf(self, pdf_path: str, open_id: str) -> str:
         """
-        打印PDF并重命名文件添加已打印标识
+        发送PDF并重命名文件添加已发送标识
         
         Args:
             pdf_path: PDF文件路径
+            open_id: 接收用户的open_id
             
         Returns:
             重命名后的文件路径
         """
-        if not self.auto_print or not self.auto_printer:
+        if not self.auto_send or not self.pdf_sender:
             return pdf_path
         
         try:
-            # 打印PDF
-            self.logger.info(f"开始打印PDF: {pdf_path}")
-            success, message = self.auto_printer.print_pdf(pdf_path)
+            # 发送PDF
+            self.logger.info(f"开始发送PDF: {pdf_path}")
+            success, message = self.pdf_sender.send_pdf_to_user(pdf_path, open_id)
             
             if success:
-                self.logger.info(f"PDF打印成功: {message}")
+                self.logger.info(f"PDF发送成功: {message}")
                 
-                # 等待打印完成
-                if self.auto_printer.wait_for_print_completion():
-                    # 重命名文件，添加已打印标识
-                    renamed_path = self._add_printed_suffix(pdf_path)
-                    self.logger.info(f"PDF已重命名为: {renamed_path}")
-                    return renamed_path
-                else:
-                    self.logger.warning("打印可能未完成，但文件已生成")
-                    return pdf_path
+                # 重命名文件，添加已发送标识
+                renamed_path = self._add_sent_suffix(pdf_path)
+                self.logger.info(f"PDF已重命名为: {renamed_path}")
+                return renamed_path
             else:
-                self.logger.error(f"PDF打印失败: {message}")
+                self.logger.error(f"PDF发送失败: {message}")
                 return pdf_path
                 
         except Exception as e:
-            self.logger.error(f"打印PDF时发生异常: {e}")
+            self.logger.error(f"发送PDF时发生异常: {e}")
             return pdf_path
     
-    def _add_printed_suffix(self, pdf_path: str) -> str:
+    def _add_sent_suffix(self, pdf_path: str) -> str:
         """
-        为PDF文件名添加已打印标识
+        为PDF文件名添加已发送标识
         
         Args:
             pdf_path: 原始PDF文件路径
@@ -147,8 +143,8 @@ class PDFGenerator:
             filename = os.path.basename(pdf_path)
             name, ext = os.path.splitext(filename)
             
-            # 添加已打印标识
-            new_filename = f"{name}_已打印{ext}"
+            # 添加已发送标识
+            new_filename = f"{name}_已发送{ext}"
             new_path = os.path.join(dir_path, new_filename)
             
             # 重命名文件
@@ -820,8 +816,8 @@ class PDFGenerator:
             doc.build(story)
             print(f"采购申请PDF报告已生成: {output_filename}")
             
-            # 自动打印并重命名
-            final_filename = self._print_and_rename_pdf(output_filename)
+            # 自动发送并重命名
+            final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
             return final_filename
             
         except Exception as e:
@@ -1132,8 +1128,8 @@ class PDFGenerator:
             doc.build(story)
             print(f"三方比价PDF报告已生成: {output_filename}")
             
-            # 自动打印并重命名
-            final_filename = self._print_and_rename_pdf(output_filename)
+            # 自动发送并重命名
+            final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
             return final_filename
             
         except Exception as e:
@@ -1484,8 +1480,8 @@ class PDFGenerator:
             doc.build(story)
             print(f"固定资产验收PDF报告已生成: {output_filename}")
             
-            # 自动打印并重命名
-            final_filename = self._print_and_rename_pdf(output_filename)
+            # 自动发送并重命名
+            final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
             return final_filename
             
         except Exception as e:
@@ -1659,8 +1655,8 @@ class PDFGenerator:
             doc.build(story)
             print(f"费用报销PDF报告已生成: {output_filename}")
             
-            # 自动打印并重命名
-            final_filename = self._print_and_rename_pdf(output_filename)
+            # 自动发送并重命名
+            final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
             return final_filename
             
         except Exception as e:

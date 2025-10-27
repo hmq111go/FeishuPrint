@@ -49,7 +49,7 @@ class RealtimePDFGenerator:
         # 初始化各个模块
         self.feishu_api = FeishuAPI(app_id, app_secret)
         self.employee_manager = EmployeeManager(self.feishu_api, employee_base_url)
-        self.pdf_generator = PDFGenerator(self.feishu_api, self.employee_manager)
+        self.pdf_generator = PDFGenerator(self.feishu_api, self.employee_manager, auto_send=True)
         
         # 初始化简化去重管理器（7天窗口）
         self.deduplicator = SimpleDeduplicator(data_dir="data", retention_days=7)

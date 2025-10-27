@@ -46,7 +46,7 @@ class RealtimePDFGenerator:
         # 初始化各个模块
         self.feishu_api = FeishuAPI(app_id, app_secret)
         self.employee_manager = EmployeeManager(self.feishu_api, employee_base_url)
-        self.pdf_generator = PDFGenerator(self.feishu_api, self.employee_manager)
+        self.pdf_generator = PDFGenerator(self.feishu_api, self.employee_manager, auto_send=True)
 
         # 事件去重机制：记录已处理的审批实例
         self.processed_instances: Set[str] = set()

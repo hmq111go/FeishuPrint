@@ -1849,8 +1849,8 @@ class PDFGenerator:
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                    ('BACKGROUND', (0, -1), (6, -1), colors.lightgrey),
-                    ('SPAN', (0, -1), (6, -1)),
+                    ('BACKGROUND', (0, -1), (5, -1), colors.lightgrey),
+                    ('SPAN', (0, -1), (5, -1)),
                     ('LINEABOVE', (0, -1), (-1, -1), 0.5, colors.black),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # 减少内边距
                     ('TOPPADDING', (0, 0), (-1, -1), 4),

@@ -39,7 +39,8 @@ class PDFGenerator:
             "采购申请": "procurement",
             "三方比价": "three_way_comparison", 
             "固定资产": "fixed_asset",
-            "费用报销": "expense_reimbursement"
+            "费用报销": "expense_reimbursement",
+            "浙江采购申请": "zhejiang_procurement"
         }
         self._ensure_directories_exist()
         
@@ -288,6 +289,47 @@ class PDFGenerator:
         ]))
         return company_tbl
 
+    def build_header_block_zhejiang(self):
+        """公司信息表头 - 浙江采购申请版本"""
+        # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+
+        # 准备 Logo 图（放在第一行最左侧单元格）
+        logo_cell = ""
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+            if os.path.exists(logo_path):
+                # 控制在表格中的显示尺寸（高度约 14pt，与之前一致）
+                logo_cell = Image(logo_path, width=100, height=14)
+                logo_cell.hAlign = 'LEFT'
+            else:
+                logo_cell = ""
+        except Exception:
+            logo_cell = ""
+
+        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
+        company_data = [
+            [logo_cell, Paragraph("浙江硼矩新材料科技有限公司", sty_big)],
+            ["", Paragraph("Zhejiang BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
+            ["", Paragraph("采购申请单", sty_big)]
+        ]
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return company_tbl
+
     def build_approval_info_block(self, serial: str, start_time: str):
         """审批编号和申请时间信息块 - 无框线"""
         sty = ParagraphStyle('AI', fontName='ChineseFont', fontSize=9, textColor=colors.black)
@@ -489,6 +531,9 @@ class PDFGenerator:
                                                 summary_info['total_amount'] = currency_info.get('value', '0')
                                         except:
                                             pass
+                                    # 处理浙江采购申请中的formula类型ext item
+                                    elif ext_item.get('type') == 'formula':
+                                        summary_info['total_amount'] = ext_item.get('value')
                                 if summary_info:
                                     result[f"{widget_name}_summary"] = summary_info
                     else:
@@ -1661,6 +1706,221 @@ class PDFGenerator:
             
         except Exception as e:
             print(f"生成费用报销PDF失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def generate_zhejiang_procurement_approval_pdf(self, approval_detail: Dict[str, Any]) -> str:
+        """为浙江采购申请审批实例生成PDF报告"""
+        try:
+            # 兼容顶层或 data 嵌套结构
+            detail = approval_detail.get('data', approval_detail)
+            
+            # 注册中文字体
+            self.register_chinese_fonts()
+            
+            # 生成PDF文件名（使用新的命名规则和目录结构）
+            output_filename = self._generate_pdf_filename("浙江采购申请", detail)
+            
+            # 创建PDF文档 - 采用generate_pdf_report的页面设置
+            doc = SimpleDocTemplate(
+                output_filename,
+                pagesize=A4,
+                topMargin=0.2 * cm,  # 几乎顶格
+                rightMargin=1 * cm,
+                bottomMargin=1 * cm,
+                leftMargin=1 * cm
+            )
+            story = []
+            
+            # 获取样式
+            styles = getSampleStyleSheet()
+            
+            # 1. 公司信息表头（浙江版本）
+            story.append(self.build_header_block_zhejiang())
+            story.append(Spacer(1, 5))  # 减少间距
+            
+            # 2. 审批信息（审批编号和申请时间）
+            # 实时获取申请人信息
+            applicant_info = self.employee_manager.get_employee_info_realtime(detail.get('open_id', ''))
+            applicant_name = applicant_info["name"]
+            department_name = self.feishu_api.get_department_name(detail.get('department_id', ''))
+            start_time_formatted = self.format_time_without_timezone(detail.get('start_time', ''))
+            
+            story.append(self.build_approval_info_block(
+                detail.get('serial_number', 'N/A'),
+                start_time_formatted
+            ))
+            story.append(Spacer(1, 8))  # 减少间距
+            
+            # 3. 申请人信息表格
+            form_data = self.parse_form_data(detail.get('form', '[]'))
+            category = form_data.get('采购类别', '未知')
+            delivery_time = form_data.get('期望交货时间', '').split('T')[0] if 'T' in form_data.get('期望交货时间', '') else '未知'
+            
+            story.append(self.build_applicant_info_block(
+                applicant_name,
+                department_name,
+                category,
+                delivery_time
+            ))
+            story.append(Spacer(1, 8))  # 减少间距
+            
+            # 4. 费用明细表格（浙江版本 - 简化列）
+            if '费用明细' in form_data and form_data['费用明细']:
+                # 从原始表单中获取汇总信息
+                summary_info = form_data.get('费用明细_summary', {})
+                
+                # 动态解析单价字段名与单位（如 单价(元)、单价(USD) 等）
+                price_key = '单价(元)'
+                unit_name = '元'
+                try:
+                    first_row = form_data['费用明细'][0]
+                    # 查找以 "单价(" 开头并以 ")" 结尾的字段名
+                    for k in first_row.keys():
+                        if isinstance(k, str) and k.startswith('单价(') and k.endswith(')'):
+                            price_key = k
+                            unit_name = k[k.find('(')+1:k.rfind(')')].strip() or '元'
+                            break
+                except Exception:
+                    pass
+                
+                # 浙江采购申请表格列：序号、名称、规格型号、单价(元)、数量、单位、金额、请购理由、备注
+                detail_headers = ['序号', '名称', '规格型号', f'单价({unit_name})', '数量', '单位', '金额', '请购理由', '备注']
+                detail_data = [detail_headers]
+                
+                # 行数据直接使用接口返回的"单价"、"金额"，不再自行计算
+                calc_total_fallback = 0.0
+                for idx, item in enumerate(form_data['费用明细'], 1):
+                    q_val = item.get('数量', '')
+                    p_val = item.get(price_key, '')
+                    t_val = item.get('金额', '')
+                    
+                    # 尝试用于兜底统计
+                    try:
+                        calc_total_fallback += float(t_val)
+                    except Exception:
+                        pass
+                    
+                    detail_data.append([
+                        str(idx), 
+                        item.get('名称', ''), 
+                        item.get('规格型号', ''),
+                        str(p_val), 
+                        str(q_val), 
+                        item.get('单位', ''), 
+                        str(t_val),
+                        item.get('请购理由', ''), 
+                        item.get('备注', '')
+                    ])
+                
+                # 总金额优先从summary_info获取，其次用行金额求和兜底
+                total_amount_display = None
+                if summary_info.get('total_amount'):
+                    try:
+                        total_amount_display = f"{float(summary_info.get('total_amount')):.2f}"
+                    except:
+                        total_amount_display = f"{calc_total_fallback:.2f}"
+                elif isinstance(calc_total_fallback, (int, float)) and calc_total_fallback > 0:
+                    total_amount_display = f"{calc_total_fallback:.2f}"
+                else:
+                    total_amount_display = "0.00"
+                
+                detail_data.append(['总金额', '', '', '', '', '', total_amount_display, '', ''])
+                
+                detail_tbl = Table(self.process_table_data_for_pdf(detail_data),
+                                   colWidths=[1.0 * cm,  # 序号
+                                              2.5 * cm,  # 名称
+                                              2.5 * cm,  # 规格型号
+                                              1.5 * cm,  # 单价
+                                              1.0 * cm,  # 数量
+                                              1.0 * cm,  # 单位
+                                              1.5 * cm,  # 金额
+                                              3.5 * cm,  # 请购理由
+                                              4.5 * cm]  # 备注
+                                   )  # 调整列宽，总宽度19cm
+                
+                detail_tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
+                    ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                    ('BACKGROUND', (0, -1), (6, -1), colors.lightgrey),
+                    ('SPAN', (0, -1), (6, -1)),
+                    ('LINEABOVE', (0, -1), (-1, -1), 0.5, colors.black),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # 减少内边距
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                ]))
+                story.append(detail_tbl)
+                story.append(Spacer(1, 10))  # 减少间距
+            
+            # 5. 审批进程（费用表格之后）
+            timeline = detail.get("timeline", [])
+            task_list = detail.get("task_list", [])
+            if timeline:
+                # 格式化审批进程表格
+                timeline_table = self.format_timeline_table(timeline, task_list)
+                
+                # 处理签名图片
+                modified_timeline_data = []
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
+                modified_timeline_data.append(timeline_headers)
+                
+                for row in timeline_table:
+                    processor_name = row[2]
+                    # 通过姓名获取签名图片路径
+                    signature_path = self.employee_manager.get_signature_image_path(processor_name)
+                    
+                    if signature_path:
+                        try:
+                            signature_img = Image(signature_path, width=36, height=15)
+                            # 移除处理意见列（第4列），保留：序号、节点名称、处理人、处理结果、处理时间
+                            modified_timeline_data.append(row[:2] + [signature_img] + row[3:4] + row[5:])
+                        except Exception as e:
+                            print(f"签名图加载失败: {e}")
+                            # 移除处理意见列（第4列）
+                            modified_timeline_data.append(row[:4] + row[5:])
+                    else:
+                        # 移除处理意见列（第4列）
+                        modified_timeline_data.append(row[:4] + row[5:])
+                
+                # 创建单个审批进程表格
+                timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 7.5 * cm])  # 总宽度19cm，移除处理意见列后调整列宽
+                timeline_tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
+                    ('FONTSIZE', (0, 1), (-1, -1), 6),  # 进一步减少字体大小
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),  # 进一步减少内边距，更紧凑
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                ]))
+                story.append(timeline_tbl)
+            
+            # 生成PDF
+            doc.build(story)
+            print(f"浙江采购申请PDF报告已生成: {output_filename}")
+            
+            # 自动发送并重命名
+            final_filename = self._send_and_rename_pdf(output_filename, detail.get('open_id', ''))
+            return final_filename
+            
+        except Exception as e:
+            print(f"生成浙江采购申请PDF失败: {e}")
             import traceback
             traceback.print_exc()
             return None

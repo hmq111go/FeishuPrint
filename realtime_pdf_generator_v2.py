@@ -43,7 +43,8 @@ class RealtimePDFGenerator:
             "三方比价": "44A66AA6-201B-452C-AA90-531AC68C9023",
             "固定资产": "8466E949-4EFD-47CE-A6D7-FCC26EA07A54", 
             "费用报销": "BCD664E5-456F-4FEE-BA6E-EE349972F6A1",
-            "采购申请": "A851D76E-6B63-4DD4-91F2-998693422C3C"
+            "采购申请": "A851D76E-6B63-4DD4-91F2-998693422C3C",
+            "浙江采购申请": "8234771B-2FE6-4111-B648-0EC3480A61D2"
         }
         
         # 初始化各个模块
@@ -233,6 +234,8 @@ class RealtimePDFGenerator:
                     pdf_filename = None
                     if approval_type == "采购申请":
                         pdf_filename = self.pdf_generator.generate_procurement_approval_pdf(approval_detail)
+                    elif approval_type == "浙江采购申请":
+                        pdf_filename = self.pdf_generator.generate_zhejiang_procurement_approval_pdf(approval_detail)
                     elif approval_type == "三方比价":
                         pdf_filename = self.pdf_generator.generate_three_way_comparison_pdf(approval_detail)
                     elif approval_type == "固定资产":

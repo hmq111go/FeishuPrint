@@ -688,7 +688,7 @@ class PDFGenerator:
             doc = SimpleDocTemplate(
                 output_filename,
                 pagesize=A4,
-                topMargin=0.2 * cm,  # 几乎顶格
+                topMargin=0.5 * cm,  # 几乎顶格
                 rightMargin=1 * cm,
                 bottomMargin=1 * cm,
                 leftMargin=1 * cm
@@ -1086,7 +1086,7 @@ class PDFGenerator:
             doc = SimpleDocTemplate(
                 output_filename,
                 pagesize=A4,
-                topMargin=0.2 * cm,
+                topMargin=0.5 * cm,
                 rightMargin=1 * cm,
                 bottomMargin=1 * cm,
                 leftMargin=1 * cm
@@ -1433,7 +1433,7 @@ class PDFGenerator:
             doc = SimpleDocTemplate(
                 output_filename,
                 pagesize=A4,
-                topMargin=0.2 * cm,
+                topMargin=0.5 * cm,
                 rightMargin=1 * cm,
                 bottomMargin=1 * cm,
                 leftMargin=1 * cm
@@ -1548,7 +1548,7 @@ class PDFGenerator:
             doc = SimpleDocTemplate(
                 output_filename,
                 pagesize=A4,
-                topMargin=0.2 * cm,  # 几乎顶格
+                topMargin=0.5 * cm,  # 几乎顶格
                 rightMargin=1 * cm,
                 bottomMargin=1 * cm,
                 leftMargin=1 * cm
@@ -1726,7 +1726,7 @@ class PDFGenerator:
             doc = SimpleDocTemplate(
                 output_filename,
                 pagesize=A4,
-                topMargin=0.2 * cm,  # 几乎顶格
+                topMargin=0.5 * cm,  # 几乎顶格
                 rightMargin=1 * cm,
                 bottomMargin=1 * cm,
                 leftMargin=1 * cm

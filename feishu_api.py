@@ -19,10 +19,19 @@ class FeishuAPI:
         self.app_id = app_id
         self.app_secret = app_secret
         self.tenant_token = None
+        self.token_expire_time = None
         self.logger = logging.getLogger(__name__)
     
-    def get_tenant_access_token(self) -> Tuple[str, Exception]:
+    def get_tenant_access_token(self, force_refresh: bool = False) -> Tuple[str, Optional[Exception]]:
         """获取 tenant_access_token"""
+        import time
+        
+        # 检查是否需要刷新token
+        if not force_refresh and self.tenant_token and self.token_expire_time:
+            if time.time() < self.token_expire_time - 300:  # 提前5分钟刷新
+                self.logger.debug("使用缓存的token")
+                return self.tenant_token, None
+        
         url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
         payload = {
             "app_id": self.app_id,
@@ -40,12 +49,17 @@ class FeishuAPI:
             self.logger.debug(f"Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
 
             if result.get("code", 0) != 0:
-                self.logger.error(f"Error: failed to get tenant_access_token: {result.get('msg', 'unknown error')}")
-                return "", Exception(f"failed to get tenant_access_token: {response.text}")
+                error_msg = f"failed to get tenant_access_token: {result.get('msg', 'unknown error')}"
+                self.logger.error(f"Error: {error_msg}")
+                return "", Exception(error_msg)
 
             access_token = result["tenant_access_token"]
+            expire_time = result.get("expire", 7200)  # 默认2小时
+            
             self.tenant_token = access_token
-            self.logger.info(f"获取 tenant_access_token 成功: {access_token[:10]}...")
+            self.token_expire_time = time.time() + expire_time
+            
+            self.logger.info(f"获取 tenant_access_token 成功: {access_token[:10]}... (有效期: {expire_time}秒)")
             return access_token, None
 
         except Exception as e:
@@ -101,7 +115,40 @@ class FeishuAPI:
         }
         self.logger.debug(f"GET: {url}")
         response = requests.get(url, headers=headers, timeout=20)
-        response.raise_for_status()
+        
+        # 改进错误处理
+        if response.status_code != 200:
+            self.logger.error(f"HTTP {response.status_code} error for instance {instance_id}")
+            self.logger.error(f"Response: {response.text}")
+            
+            # 检查是否是token问题
+            try:
+                error_data = response.json()
+                error_code = error_data.get('code', response.status_code)
+                error_msg = error_data.get('msg', 'Unknown error')
+                
+                # 如果是token问题，尝试刷新token
+                if error_code == 99991663:  # Invalid access token
+                    self.logger.warning("检测到token失效，尝试刷新token")
+                    new_token, err = self.get_tenant_access_token(force_refresh=True)
+                    if err:
+                        raise RuntimeError(f"刷新token失败: {err}")
+                    
+                    # 使用新token重试
+                    headers["Authorization"] = f"Bearer {new_token}"
+                    self.logger.info("使用新token重试请求")
+                    response = requests.get(url, headers=headers, timeout=20)
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get("code", 0) == 0:
+                            self.logger.info("使用新token成功获取实例详情")
+                            return result.get("data", {})
+                
+                raise RuntimeError(f"Feishu API error: code={error_code}, msg={error_msg}")
+            except:
+                raise RuntimeError(f"HTTP {response.status_code} error: {response.text}")
+        
         result = response.json()
         self.logger.debug(f"Response for instance {instance_id}: {json.dumps(result, ensure_ascii=False)}")
         if result.get("code", 0) != 0:

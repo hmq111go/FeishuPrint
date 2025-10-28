@@ -20,13 +20,22 @@ class PDFSender:
         self.app_secret = app_secret
         self.logger = logging.getLogger(__name__)
         self.tenant_access_token = None
+        self.token_expire_time = None
     
-    def get_tenant_access_token(self) -> Tuple[str, Optional[Exception]]:
+    def get_tenant_access_token(self, force_refresh: bool = False) -> Tuple[str, Optional[Exception]]:
         """获取 tenant_access_token
 
         Returns:
             Tuple[str, Optional[Exception]]: (access_token, error)
         """
+        import time
+        
+        # 检查是否需要刷新token
+        if not force_refresh and self.tenant_access_token and self.token_expire_time:
+            if time.time() < self.token_expire_time - 300:  # 提前5分钟刷新
+                self.logger.debug("使用缓存的token")
+                return self.tenant_access_token, None
+        
         url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
         payload = {
             "app_id": self.app_id,
@@ -50,6 +59,12 @@ class PDFSender:
                 return "", Exception(error_msg)
 
             self.tenant_access_token = result["tenant_access_token"]
+            expire_time = result.get("expire", 7200)  # 默认2小时
+            
+            import time
+            self.token_expire_time = time.time() + expire_time
+            
+            self.logger.info(f"获取 tenant_access_token 成功: {self.tenant_access_token[:10]}... (有效期: {expire_time}秒)")
             return self.tenant_access_token, None
 
         except Exception as e:
@@ -131,6 +146,46 @@ class PDFSender:
                 self.logger.debug(f"Uploading file: {file_path}")
                 
                 response = requests.post(url, headers=headers, data=data, files=files)
+                
+                # 检查是否是token问题
+                if response.status_code != 200:
+                    self.logger.error(f"HTTP {response.status_code} error uploading file")
+                    self.logger.error(f"Response: {response.text}")
+                    
+                    try:
+                        error_data = response.json()
+                        error_code = error_data.get('code', response.status_code)
+                        error_msg = error_data.get('msg', 'Unknown error')
+                        
+                        # 如果是token问题，尝试刷新token
+                        if error_code == 99991663:  # Invalid access token
+                            self.logger.warning("检测到token失效，尝试刷新token")
+                            new_token, err = self.get_tenant_access_token(force_refresh=True)
+                            if err:
+                                return "", Exception(f"刷新token失败: {err}")
+                            
+                            # 使用新token重试
+                            headers["Authorization"] = f"Bearer {new_token}"
+                            self.logger.info("使用新token重试上传")
+                            
+                            # 重新打开文件进行重试
+                            with open(file_path, 'rb') as f:
+                                files = {
+                                    'file': (file_name, f, 'application/octet-stream')
+                                }
+                                response = requests.post(url, headers=headers, data=data, files=files)
+                                
+                                if response.status_code == 200:
+                                    result = response.json()
+                                    if result.get("code", 0) == 0:
+                                        file_key = result["data"]["file_key"]
+                                        self.logger.info(f"使用新token成功上传文件, file_key: {file_key}")
+                                        return file_key, None
+                        
+                        return "", Exception(f"上传文件失败: code={error_code}, msg={error_msg}")
+                    except:
+                        return "", Exception(f"HTTP {response.status_code} error: {response.text}")
+                
                 response.raise_for_status()
                 
                 result = response.json()

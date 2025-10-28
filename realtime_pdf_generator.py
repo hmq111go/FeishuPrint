@@ -129,7 +129,12 @@ class RealtimePDFGenerator:
                         self.logger.error("未找到实例ID，无法获取详情")
                         return
 
-                    approval_detail = self.feishu_api.fetch_approval_instance_detail(instance_id)
+                    try:
+                        approval_detail = self.feishu_api.fetch_approval_instance_detail(instance_id)
+                    except Exception as e:
+                        self.logger.error(f"获取审批实例详情失败: {e}")
+                        self.logger.error(f"实例ID: {instance_id}")
+                        return
 
                     # 根据审批类型调用对应的PDF生成器
                     pdf_filename = None

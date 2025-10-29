@@ -202,11 +202,19 @@ class PDFGenerator:
                         print(f"注册字体失败 {font_path}: {e}")
                         continue
             
-            print("警告: 未能注册中文字体，中文可能显示为方块")
+            print("警告: 未能注册中文字体，将使用默认字体")
+            # 使用 Helvetica 作为后备字体
             return False
         except Exception as e:
             print(f"字体注册过程出错: {e}")
             return False
+    
+    def get_available_font_name(self) -> str:
+        """获取可用的字体名称"""
+        registered_fonts = pdfmetrics.getRegisteredFontNames()
+        if "ChineseFont" in registered_fonts:
+            return "ChineseFont"
+        return "Helvetica"
 
     def create_wrapped_text(self, text: str, font_name: str = "ChineseFont", font_size: int = 9) -> Paragraph:
         """创建支持自动换行的文本段落"""
@@ -254,10 +262,11 @@ class PDFGenerator:
 
     def build_header_block(self):
         """公司信息表头"""
+        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -302,10 +311,11 @@ class PDFGenerator:
 
     def build_header_block_zhejiang(self):
         """公司信息表头 - 浙江采购申请版本"""
+        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -350,7 +360,8 @@ class PDFGenerator:
 
     def build_approval_info_block(self, serial: str, start_time: str):
         """审批编号和申请时间信息块 - 无框线"""
-        sty = ParagraphStyle('AI', fontName='ChineseFont', fontSize=9, textColor=colors.black)
+        font_name = self.get_available_font_name()
+        sty = ParagraphStyle('AI', fontName=font_name, fontSize=9, textColor=colors.black)
         data = [[Paragraph(f"审批编号：{serial}", sty),
                  Paragraph(f"申请时间：{start_time}", sty)]]
         tbl = Table(data, colWidths=[9.5 * cm, 9.5 * cm], rowHeights=[0.5 * cm])  # 进一步减少行高
@@ -368,8 +379,9 @@ class PDFGenerator:
 
     def build_applicant_info_block(self, applicant_name: str, department_name: str, category: str, delivery_time: str):
         """申请人、采购类别、期望交货时间信息表格"""
-        sty_label = ParagraphStyle('Lab', fontName='ChineseFont', fontSize=8, textColor=colors.black)
-        sty_val = ParagraphStyle('Val', fontName='ChineseFont', fontSize=8, textColor=colors.black)
+        font_name = self.get_available_font_name()
+        sty_label = ParagraphStyle('Lab', fontName=font_name, fontSize=8, textColor=colors.black)
+        sty_val = ParagraphStyle('Val', fontName=font_name, fontSize=8, textColor=colors.black)
 
         data = [[Paragraph("申请人", sty_label), Paragraph(f"{applicant_name}-{department_name}", sty_val),
                  Paragraph("采购类别", sty_label), Paragraph(category, sty_val),
@@ -396,10 +408,11 @@ class PDFGenerator:
     
     def build_header_block_expense(self):
         """公司信息表头 - 费用报销版本"""
+        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -444,9 +457,10 @@ class PDFGenerator:
 
     def build_header_block_zhejiang_expense(self):
         """公司信息表头 - 浙江费用报销版本"""
-        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+        font_name = self.get_available_font_name()
+        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         logo_cell = ""
@@ -489,9 +503,10 @@ class PDFGenerator:
     
     def build_header_block_zhiben(self):
         """公司信息表头 - 知本采购申请版本"""
-        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+        font_name = self.get_available_font_name()
+        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         logo_cell = ""
@@ -530,9 +545,10 @@ class PDFGenerator:
     
     def build_header_block_zhiben_expense(self):
         """公司信息表头 - 知本费用报销版本"""
-        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+        font_name = self.get_available_font_name()
+        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         logo_cell = ""
@@ -562,9 +578,10 @@ class PDFGenerator:
     
     def build_header_block_zhiben_fixed_asset(self):
         """公司信息表头 - 知本固定资产验收版本"""
-        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+        font_name = self.get_available_font_name()
+        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         logo_cell = ""
@@ -594,8 +611,9 @@ class PDFGenerator:
     
     def build_applicant_info_block_expense(self, applicant_name: str, department_name: str, reimbursement_reason: str, total_amount: str):
         """申请人、报销事由、费用汇总信息表格"""
-        sty_label = ParagraphStyle('Lab', fontName='ChineseFont', fontSize=8, textColor=colors.black)
-        sty_val = ParagraphStyle('Val', fontName='ChineseFont', fontSize=8, textColor=colors.black)
+        font_name = self.get_available_font_name()
+        sty_label = ParagraphStyle('Lab', fontName=font_name, fontSize=8, textColor=colors.black)
+        sty_val = ParagraphStyle('Val', fontName=font_name, fontSize=8, textColor=colors.black)
 
         data = [[Paragraph("申请人", sty_label), Paragraph(f"{applicant_name}-{department_name}", sty_val),
                  Paragraph("费用汇总", sty_label), Paragraph(str(total_amount), sty_val),
@@ -1048,10 +1066,11 @@ class PDFGenerator:
 
     def build_header_block_procurement(self):
         """公司信息表头 - 三方比价单版本"""
+        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -1368,10 +1387,11 @@ class PDFGenerator:
 
     def build_header_block_fixed_asset(self):
         """公司信息表头 - 固定资产验收版本"""
+        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -1387,25 +1407,18 @@ class PDFGenerator:
         except Exception:
             logo_cell = ""
 
-        # 创建公司信息表格：第一行两列仅放 Logo；文本各行合并两列，确保绝对居中
+        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
         company_data = [
-            [logo_cell, ""],
-            [Paragraph("上海硼矩新材料科技有限公司", sty_big), ""],
-            [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
-            [Paragraph("固定资产验收单", sty_big)]
+            [logo_cell, Paragraph("上海硼矩新材料科技有限公司", sty_big)],
+            ["", Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
+            ["", Paragraph("固定资产验收单", sty_big)]  # 修改为固定资产验收单
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
-            # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
-            # 公司名与副标题、单据名行合并两列并绝对居中
-            ('SPAN', (0, 1), (1, 1)),
-            ('SPAN', (0, 2), (1, 2)),
-            ('SPAN', (0, 3), (1, 3)),
-            ('ALIGN', (0, 1), (1, 3), 'CENTER'),
-            ('VALIGN', (0, 1), (1, 3), 'MIDDLE'),
-            # 内边距与边框
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -1416,7 +1429,8 @@ class PDFGenerator:
 
     def build_approval_info_block_fixed_asset(self, serial: str, start_time: str, supplier: str):
         """审批编号、申请时间和供应商信息块 - 无框线"""
-        sty = ParagraphStyle('AI', fontName='ChineseFont', fontSize=9, textColor=colors.black)
+        font_name = self.get_available_font_name()
+        sty = ParagraphStyle('AI', fontName=font_name, fontSize=9, textColor=colors.black)
         data = [[Paragraph(f"审批编号：{serial}", sty),
                  Paragraph(f"申请时间：{start_time}", sty),
                  Paragraph(f"供应商：{supplier}", sty)]]

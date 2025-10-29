@@ -12,6 +12,16 @@ import requests
 import urllib.parse
 
 
+def get_verify_setting():
+    """
+    获取SSL验证设置
+    在腾讯云等环境中可能需要禁用SSL验证
+    """
+    # 检查环境变量
+    ssl_verify = os.environ.get('SSL_VERIFY', 'False').lower()
+    return ssl_verify not in ('false', '0', 'no')
+
+
 class FeishuAPI:
     """飞书API客户端"""
     
@@ -42,7 +52,7 @@ class FeishuAPI:
         }
         try:
             self.logger.debug(f"Request body: {json.dumps(payload)}")
-            response = requests.post(url, json=payload, headers=headers)
+            response = requests.post(url, json=payload, headers=headers, verify=get_verify_setting())
             response.raise_for_status()
 
             result = response.json()
@@ -82,7 +92,7 @@ class FeishuAPI:
 
         try:
             self.logger.debug(f"POST: {url}")
-            response = requests.post(url, headers=headers)
+            response = requests.post(url, headers=headers, verify=get_verify_setting())
             result = response.json()
             self.logger.debug(f"Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
 
@@ -114,7 +124,7 @@ class FeishuAPI:
             "Content-Type": "application/json; charset=utf-8",
         }
         self.logger.debug(f"GET: {url}")
-        response = requests.get(url, headers=headers, timeout=20)
+        response = requests.get(url, headers=headers, timeout=20, verify=get_verify_setting())
         
         # 改进错误处理
         if response.status_code != 200:
@@ -137,7 +147,7 @@ class FeishuAPI:
                     # 使用新token重试
                     headers["Authorization"] = f"Bearer {new_token}"
                     self.logger.info("使用新token重试请求")
-                    response = requests.get(url, headers=headers, timeout=20)
+                    response = requests.get(url, headers=headers, timeout=20, verify=get_verify_setting())
                     
                     if response.status_code == 200:
                         result = response.json()
@@ -179,7 +189,7 @@ class FeishuAPI:
 
         try:
             self.logger.debug(f"获取部门信息: {department_id} (类型: {department_id_type})")
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, verify=get_verify_setting())
             response.raise_for_status()
             data = response.json()
 
@@ -208,7 +218,7 @@ class FeishuAPI:
 
         try:
             self.logger.debug(f"GET: {url}")
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, verify=get_verify_setting())
             response.raise_for_status()
 
             result = response.json()
@@ -276,7 +286,7 @@ class FeishuAPI:
                 params["page_token"] = page_token
 
             self.logger.debug(f"GET: {url} with params: {params}")
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, verify=get_verify_setting())
             response.raise_for_status()
 
             result = response.json()
@@ -322,7 +332,7 @@ class FeishuAPI:
 
             self.logger.debug(f"POST: {url}")
             self.logger.debug(f"Request body: {json.dumps(payload)}")
-            response = requests.post(url, json=payload, headers=headers)
+            response = requests.post(url, json=payload, headers=headers, verify=get_verify_setting())
             response.raise_for_status()
 
             result = response.json()
@@ -353,7 +363,7 @@ class FeishuAPI:
 
         try:
             self.logger.debug(f"Downloading file from: {file_url} to: {filename}")
-            response = requests.get(file_url, headers=headers)
+            response = requests.get(file_url, headers=headers, verify=get_verify_setting())
             response.raise_for_status()
 
             with open(filename, "wb") as f:

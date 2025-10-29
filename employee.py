@@ -8,6 +8,16 @@ import urllib.parse
 from typing import Dict, Any, List, Tuple, Optional
 from urllib.parse import urlparse, parse_qs
 
+
+def get_verify_setting():
+    """
+    获取SSL验证设置
+    在腾讯云等环境中可能需要禁用SSL验证
+    """
+    # 检查环境变量
+    ssl_verify = os.environ.get('SSL_VERIFY', 'False').lower()
+    return ssl_verify not in ('false', '0', 'no')
+
 # === input params start
 # Hardcoded credentials and query params
 app_id = "cli_a88a2172ee6c101c"
@@ -38,7 +48,7 @@ def get_tenant_access_token(app_id: str, app_secret: str) -> Tuple[str, Exceptio
     try:
         print(f"POST: {url}")
         print(f"Request body: {json.dumps(payload)}")
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, verify=get_verify_setting())
         response.raise_for_status()
 
         result = response.json()
@@ -75,7 +85,7 @@ def get_wiki_node_info(tenant_access_token: str, node_token: str) -> Dict[str, A
 
     try:
         print(f"GET: {url}")
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, verify=get_verify_setting())
         response.raise_for_status()
 
         result = response.json()
@@ -158,7 +168,7 @@ def list_tables(tenant_access_token: str, app_token: str) -> List[Dict[str, Any]
             params["page_token"] = page_token
 
         print(f"GET: {url} with params: {params}")
-        response = requests.get(url, headers=headers, params=params)
+        response = requests.get(url, headers=headers, params=params, verify=get_verify_setting())
         response.raise_for_status()
 
         result = response.json()
@@ -213,7 +223,7 @@ def search_records(tenant_access_token: str, app_token: str, table_id: str, view
 
         print(f"POST: {url}")
         print(f"Request body: {json.dumps(payload)}")
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, verify=get_verify_setting())
         response.raise_for_status()
 
         result = response.json()
@@ -251,7 +261,7 @@ def download_file(tenant_access_token: str, file_url: str, filename: str) -> boo
 
     try:
         print(f"Downloading file from: {file_url} to: {filename}")
-        response = requests.get(file_url, headers=headers)
+        response = requests.get(file_url, headers=headers, verify=get_verify_setting())
         response.raise_for_status()
 
         with open(filename, "wb") as f:

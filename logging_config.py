@@ -6,6 +6,16 @@
 
 import logging
 import sys
+import os
+
+# 禁用SSL证书验证警告（用于腾讯云等环境）
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# 设置环境变量，允许不验证SSL证书（可选）
+# 如果系统环境变量已设置，则使用它
+if 'SSL_VERIFY' not in os.environ:
+    os.environ['SSL_VERIFY'] = 'False'
 
 
 def setup_logging(level=logging.INFO, show_debug=False):
@@ -68,5 +78,9 @@ if __name__ == "__main__":
     else:
         print("无效选择，使用默认正常模式")
         set_normal_mode()
+
+
+
+
 
 

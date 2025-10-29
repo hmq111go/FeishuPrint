@@ -12,6 +12,16 @@ import mimetypes
 from typing import Dict, Any, Tuple, Optional
 
 
+def get_verify_setting():
+    """
+    获取SSL验证设置
+    在腾讯云等环境中可能需要禁用SSL验证
+    """
+    # 检查环境变量
+    ssl_verify = os.environ.get('SSL_VERIFY', 'False').lower()
+    return ssl_verify not in ('false', '0', 'no')
+
+
 class PDFSender:
     """PDF发送器"""
     
@@ -47,7 +57,7 @@ class PDFSender:
         try:
             self.logger.debug(f"POST: {url}")
             self.logger.debug(f"Request body: {json.dumps(payload)}")
-            response = requests.post(url, json=payload, headers=headers)
+            response = requests.post(url, json=payload, headers=headers, verify=get_verify_setting())
             response.raise_for_status()
 
             result = response.json()
@@ -145,7 +155,7 @@ class PDFSender:
                 self.logger.debug(f"Form data: file_type={file_type}, file_name={file_name}")
                 self.logger.debug(f"Uploading file: {file_path}")
                 
-                response = requests.post(url, headers=headers, data=data, files=files)
+                response = requests.post(url, headers=headers, data=data, files=files, verify=get_verify_setting())
                 
                 # 检查是否是token问题
                 if response.status_code != 200:
@@ -173,7 +183,7 @@ class PDFSender:
                                 files = {
                                     'file': (file_name, f, 'application/octet-stream')
                                 }
-                                response = requests.post(url, headers=headers, data=data, files=files)
+                                response = requests.post(url, headers=headers, data=data, files=files, verify=get_verify_setting())
                                 
                                 if response.status_code == 200:
                                     result = response.json()
@@ -246,7 +256,7 @@ class PDFSender:
             self.logger.debug(f"Headers: Authorization: Bearer [HIDDEN]")
             self.logger.debug(f"Request body: {json.dumps(payload, indent=2)}")
             
-            response = requests.post(url, params=params, headers=headers, json=payload)
+            response = requests.post(url, params=params, headers=headers, json=payload, verify=get_verify_setting())
             response.raise_for_status()
             
             result = response.json()

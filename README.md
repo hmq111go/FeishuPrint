@@ -115,10 +115,7 @@ cache_ttl = 300  # 缓存有效期（秒）
 
 ### 飞书API配置
 ```python
-APP_ID = "cli_a88a2172ee6c101c"
-APP_SECRET = "cpsZfhOpTSKka72mQeCfWbCJHJfrNdvy"
-EMPLOYEE_BASE_URL = "https://boronmatrix.feishu.cn/base/BRx3bEh91aUfWtsMCshcE4ksnKg?table=tbldKFyEpQcaxo98&view=vewuq32tpn"
-```
+
 
 ## 使用方法
 

@@ -46,7 +46,9 @@ class RealtimePDFGenerator:
             "采购申请": "A851D76E-6B63-4DD4-91F2-998693422C3C",
             "浙江采购申请": "8234771B-2FE6-4111-B648-0EC3480A61D2",
             "浙江费用报销": "0B800158-599F-4876-8C04-36E8B5B4290B",
-            "知本采购申请": "A66AF5F6-650A-486E-AF48-A4E37385471F"
+            "知本采购申请": "A66AF5F6-650A-486E-AF48-A4E37385471F",
+            "知本费用报销": "79C02D2D-E591-4E1A-9D49-589C719E96EF",
+            "知本固定资产验收": "766ABA90-9822-482E-8C23-4BD70C0A442E"
         }
         
         # 初始化各个模块
@@ -240,8 +242,12 @@ class RealtimePDFGenerator:
                         pdf_filename = self.pdf_generator.generate_zhejiang_procurement_approval_pdf(approval_detail)
                     elif approval_type == "浙江费用报销":
                         pdf_filename = self.pdf_generator.generate_zhejiang_expense_reimbursement_pdf(approval_detail)
-                    elif approval_type == "知本-采购申请":
+                    elif approval_type == "知本采购申请":
                         pdf_filename = self.pdf_generator.generate_zhiben_procurement_approval_pdf(approval_detail)
+                    elif approval_type == "知本费用报销":
+                        pdf_filename = self.pdf_generator.generate_zhiben_expense_reimbursement_pdf(approval_detail)
+                    elif approval_type == "知本固定资产验收":
+                        pdf_filename = self.pdf_generator.generate_zhiben_fixed_asset_acceptance_pdf(approval_detail)
                     elif approval_type == "三方比价":
                         pdf_filename = self.pdf_generator.generate_three_way_comparison_pdf(approval_detail)
                     elif approval_type == "固定资产":

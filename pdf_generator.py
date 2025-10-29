@@ -42,7 +42,9 @@ class PDFGenerator:
             "费用报销": "expense_reimbursement",
             "浙江采购申请": "zhejiang_procurement",
             "浙江费用报销": "zhejiang_expense_reimbursement",
-            "知本采购申请": "zhiben_procurement"
+            "知本采购申请": "zhiben_procurement",
+            "知本费用报销": "zhiben_expense_reimbursement",
+            "知本固定资产验收": "zhiben_fixed_asset"
         }
         self._ensure_directories_exist()
         
@@ -478,6 +480,62 @@ class PDFGenerator:
             [logo_cell, Paragraph("知本昕科（上海）人工智能科技有限公司", sty_big)],
             ["", Paragraph("EpiScience Artificial Intelligence Technology Co., Ltd", sty_sml)],
             ["", Paragraph("采购申请单", sty_big)]
+        ]
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return company_tbl
+    
+    def build_header_block_zhiben_expense(self):
+        """公司信息表头 - 知本费用报销版本"""
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+
+        logo_cell = ""
+
+        company_data = [
+            [logo_cell, Paragraph("知本昕科（上海）人工智能科技有限公司", sty_big)],
+            ["", Paragraph("EpiScience Artificial Intelligence Technology Co., Ltd", sty_sml)],
+            ["", Paragraph("费用报销单", sty_big)]
+        ]
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        return company_tbl
+    
+    def build_header_block_zhiben_fixed_asset(self):
+        """公司信息表头 - 知本固定资产验收版本"""
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
+                                 spaceBefore=0, spaceAfter=0)
+
+        logo_cell = ""
+
+        company_data = [
+            [logo_cell, Paragraph("知本昕科（上海）人工智能科技有限公司", sty_big)],
+            ["", Paragraph("EpiScience Artificial Intelligence Technology Co., Ltd", sty_sml)],
+            ["", Paragraph("固定资产验收单", sty_big)]
         ]
         company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
@@ -1913,6 +1971,239 @@ class PDFGenerator:
 
         except Exception as e:
             print(f"生成浙江费用报销PDF失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def generate_zhiben_expense_reimbursement_pdf(self, approval_detail: Dict[str, Any]) -> str:
+        """生成知本费用报销审批PDF报告（参考浙江费用报销模板）"""
+        try:
+            self.register_chinese_fonts()
+
+            output_filename = self._generate_pdf_filename("知本费用报销", approval_detail)
+
+            doc = SimpleDocTemplate(
+                output_filename,
+                pagesize=A4,
+                topMargin=0.5 * cm,
+                rightMargin=1 * cm,
+                bottomMargin=1 * cm,
+                leftMargin=1 * cm
+            )
+            story = []
+
+            # 1. 知本公司表头
+            story.append(self.build_header_block_zhiben_expense())
+            story.append(Spacer(1, 5))
+
+            # 2. 审批信息
+            applicant_info = self.employee_manager.get_employee_info_realtime(approval_detail.get('open_id', ''))
+            applicant_name = applicant_info["name"]
+            department_name = self.feishu_api.get_department_name(approval_detail.get('department_id', ''))
+            start_time_formatted = self.format_time_without_timezone(approval_detail.get('start_time', ''))
+            story.append(self.build_approval_info_block(
+                approval_detail.get('serial_number', 'N/A'),
+                start_time_formatted
+            ))
+            story.append(Spacer(1, 8))
+
+            # 3. 申请人信息
+            form_data = self.parse_form_data(approval_detail.get('form', '[]'))
+            reimbursement_reason = form_data.get('报销事由', '未知')
+            total_amount = form_data.get('费用汇总', '') or form_data.get('费用明细_summary', {}).get('total_amount', '')
+            story.append(self.build_applicant_info_block_expense(
+                applicant_name,
+                department_name,
+                reimbursement_reason,
+                total_amount
+            ))
+            story.append(Spacer(1, 8))
+
+            # 4. 费用明细
+            if '费用明细' in form_data and form_data['费用明细']:
+                summary_info = form_data.get('费用明细_summary', {})
+                currency_code = summary_info.get('currency') or 'CNY'
+                amount_header = '金额' + (f"({currency_code})" if currency_code else '')
+                detail_headers = ['序号', '报销类型', '日期', '内容', amount_header]
+                detail_data = [detail_headers]
+
+                for idx, item in enumerate(form_data['费用明细'], 1):
+                    date_val = self.format_date_string(item.get('日期（年-月-日）', ''))
+                    detail_data.append([
+                        str(idx),
+                        item.get('报销类型', ''),
+                        date_val,
+                        item.get('内容', ''),
+                        str(item.get('金额', ''))
+                    ])
+
+                detail_tbl = Table(self.process_table_data_for_pdf(detail_data),
+                                   colWidths=[1.5 * cm, 2.5 * cm, 2.5 * cm, 8.0 * cm, 4.5 * cm])
+                detail_tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7),
+                    ('FONTSIZE', (0, 1), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                ]))
+                story.append(detail_tbl)
+                story.append(Spacer(1, 10))
+
+            # 5. 审批进程
+            timeline = approval_detail.get("timeline", [])
+            task_list = approval_detail.get("task_list", [])
+            if timeline:
+                timeline_table = self.format_timeline_table(timeline, task_list)
+                modified_timeline_data = []
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果',  '处理意见','处理时间']
+                modified_timeline_data.append(timeline_headers)
+                for row in timeline_table:
+                    processor_name = row[2]
+                    signature_path = self.employee_manager.get_signature_image_path(processor_name)
+                    if signature_path:
+                        try:
+                            signature_img = Image(signature_path, width=36, height=15)
+                            modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
+                        except Exception:
+                            modified_timeline_data.append(row)
+                    else:
+                        modified_timeline_data.append(row)
+
+                timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])
+                timeline_tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7),
+                    ('FONTSIZE', (0, 1), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                ]))
+                story.append(timeline_tbl)
+
+            doc.build(story)
+            final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
+            return final_filename
+
+        except Exception as e:
+            print(f"生成知本费用报销PDF失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def generate_zhiben_fixed_asset_acceptance_pdf(self, approval_detail: Dict[str, Any]) -> str:
+        """生成知本固定资产验收审批PDF报告（参考固定资产验收模板）"""
+        try:
+            self.register_chinese_fonts()
+
+            output_filename = self._generate_pdf_filename("知本固定资产验收", approval_detail)
+
+            doc = SimpleDocTemplate(
+                output_filename,
+                pagesize=A4,
+                topMargin=0.5 * cm,
+                rightMargin=1 * cm,
+                bottomMargin=1 * cm,
+                leftMargin=1 * cm
+            )
+            story = []
+
+            # 1. 知本公司表头
+            story.append(self.build_header_block_zhiben_fixed_asset())
+            story.append(Spacer(1, 5))
+
+            # 2. 审批信息（审批编号、申请时间、供应商）
+            form_data = self.parse_form_data(approval_detail.get('form', '[]'))
+            supplier = form_data.get('供应商', '未知')
+            start_time_formatted = self.format_time_without_timezone(approval_detail.get('start_time', ''))
+            story.append(self.build_approval_info_block_fixed_asset(
+                approval_detail.get('serial_number', 'N/A'),
+                start_time_formatted,
+                supplier
+            ))
+            story.append(Spacer(1, 8))
+
+            # 3. 资产信息表格
+            if '资产信息' in form_data and form_data['资产信息']:
+                asset_table = self.build_asset_info_table(form_data['资产信息'])
+                story.append(asset_table)
+                story.append(Spacer(1, 10))
+
+            # 4. 配件清单表格
+            accessory_table = self.build_accessory_list_table()
+            story.append(accessory_table)
+            story.append(Spacer(1, 10))
+
+            # 5. 验收情况表格
+            acceptance_check_table = self.build_acceptance_check_table(form_data)
+            story.append(acceptance_check_table)
+            story.append(Spacer(1, 10))
+
+            # 6. 验收记录表格
+            acceptance_record_table = self.build_acceptance_record_table(form_data)
+            story.append(acceptance_record_table)
+            story.append(Spacer(1, 10))
+
+            # 7. 审批进程表格
+            timeline = approval_detail.get("timeline", [])
+            task_list = approval_detail.get("task_list", [])
+            if timeline:
+                timeline_table = self.format_timeline_table(timeline, task_list)
+                modified_timeline_data = []
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理意见', '处理时间']
+                modified_timeline_data.append(timeline_headers)
+                for row in timeline_table:
+                    processor_name = row[2]
+                    signature_path = self.employee_manager.get_signature_image_path(processor_name)
+                    if signature_path:
+                        try:
+                            signature_img = Image(signature_path, width=36, height=15)
+                            modified_timeline_data.append(row[:2] + [signature_img] + row[3:])
+                        except Exception:
+                            modified_timeline_data.append(row)
+                    else:
+                        modified_timeline_data.append(row)
+
+                timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])
+                timeline_tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7),
+                    ('FONTSIZE', (0, 1), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                ]))
+                story.append(timeline_tbl)
+
+            doc.build(story)
+            final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
+            return final_filename
+
+        except Exception as e:
+            print(f"生成知本固定资产验收PDF失败: {e}")
             import traceback
             traceback.print_exc()
             return None

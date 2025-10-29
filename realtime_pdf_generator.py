@@ -19,6 +19,18 @@ os.environ['CURL_CA_BUNDLE'] = ''
 os.environ['REQUESTS_CA_BUNDLE'] = ''
 os.environ['HTTPX_VERIFY'] = 'false'
 os.environ['SSL_VERIFY'] = 'False'
+os.environ['WEBSOCKET_SSL_VERIFY_MODE'] = '0'
+
+# Monkey patch WebSocket库的SSL验证（在导入websocket之前）
+import sys
+# 预先注册一个monkey patch函数
+_original_ssl_context = ssl.create_default_context
+def _patched_ssl_context(*args, **kwargs):
+    ctx = ssl._create_unverified_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+ssl.create_default_context = _patched_ssl_context
 
 # ========== 现在可以导入其他模块 ==========
 import json

@@ -19,6 +19,18 @@ os.environ['CURL_CA_BUNDLE'] = ''
 os.environ['REQUESTS_CA_BUNDLE'] = ''
 os.environ['HTTPX_VERIFY'] = 'false'
 os.environ['SSL_VERIFY'] = 'False'
+os.environ['WEBSOCKET_SSL_VERIFY_MODE'] = '0'
+
+# Monkey patch WebSocket库的SSL验证（在导入websocket之前）
+import sys
+# 预先注册一个monkey patch函数
+_original_ssl_context = ssl.create_default_context
+def _patched_ssl_context(*args, **kwargs):
+    ctx = ssl._create_unverified_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+ssl.create_default_context = _patched_ssl_context
 
 # ========== 现在可以导入其他模块 ==========
 import json
@@ -422,6 +434,19 @@ class RealtimePDFGenerator:
         self.logger.info("正在连接飞书事件推送服务...")
         self.logger.info("等待审批通过事件，将自动生成包含签名图片的PDF报告...")
         self.logger.info("注意: 系统已优化为快速响应模式，确保3秒内返回HTTP 200状态码")
+        
+        # 配置WebSocket的SSL上下文，禁用SSL验证
+        try:
+            import ssl
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            # 设置环境变量
+            os.environ['WEBSOCKET_SSL_VERIFY_MODE'] = '0'
+        except Exception as e:
+            self.logger.warning(f"配置SSL上下文失败: {e}")
+        
         cli = lark.ws.Client(self.app_id, self.app_secret,
                              event_handler=event_handler, log_level=lark.LogLevel.WARNING)
         self.logger.info("WebSocket客户端已启动，等待接收审批事件...")

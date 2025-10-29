@@ -9,7 +9,11 @@ import os
 import sys
 import time
 import logging
+import ssl
 from typing import Dict, Any, Set
+
+# 禁用SSL证书验证（用于腾讯云等环境）
+ssl._create_default_https_context = ssl._create_unverified_context
 
 import lark_oapi as lark
 

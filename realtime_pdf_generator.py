@@ -15,6 +15,10 @@ from typing import Dict, Any, Set
 # 禁用SSL证书验证（用于腾讯云等环境）
 ssl._create_default_https_context = ssl._create_unverified_context
 
+# 禁用httpx的SSL验证（lark-oapi SDK使用httpx）
+import os
+os.environ['HTTPX_VERIFY'] = 'false'
+
 import lark_oapi as lark
 
 from feishu_api import FeishuAPI
@@ -227,6 +231,12 @@ class RealtimePDFGenerator:
 
 def main():
     """主函数"""
+    # 导入日志配置以确保SSL设置生效
+    from logging_config import setup_logging
+    
+    # 配置日志
+    setup_logging(level=logging.INFO)
+    
     # 配置参数
     APP_ID = "cli_a88a2172ee6c101c"
     APP_SECRET = "cpsZfhOpTSKka72mQeCfWbCJHJfrNdvy"

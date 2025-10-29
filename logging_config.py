@@ -17,6 +17,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 if 'SSL_VERIFY' not in os.environ:
     os.environ['SSL_VERIFY'] = 'False'
 
+# 禁用httpx的SSL验证（lark-oapi SDK使用httpx）
+if 'HTTPX_VERIFY' not in os.environ:
+    os.environ['HTTPX_VERIFY'] = 'false'
+
 
 def setup_logging(level=logging.INFO, show_debug=False):
     """

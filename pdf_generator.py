@@ -392,7 +392,6 @@ class PDFGenerator:
         tbl.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
-            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 8),  # 调整字体大小
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
@@ -624,7 +623,6 @@ class PDFGenerator:
         tbl.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
-            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 8),  # 调整字体大小
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
@@ -984,7 +982,6 @@ class PDFGenerator:
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1037,7 +1034,6 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -1), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1144,7 +1140,6 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, 0), 7),
             ('FONTSIZE', (0, 1), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1234,7 +1229,6 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 1), (-1, 1), 7),
             ('FONTSIZE', (0, 2), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1263,7 +1257,6 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -1357,7 +1350,6 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1482,7 +1474,6 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 1), (-1, 1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 1), (-1, 1), 7),
             ('FONTSIZE', (0, 2), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1510,7 +1501,6 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 1), (-1, 1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 1), (-1, 1), 7),
             ('FONTSIZE', (0, 2), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1570,7 +1560,6 @@ class PDFGenerator:
             ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, 0), 7),
             ('FONTSIZE', (0, 1), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1612,7 +1601,6 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -1711,7 +1699,6 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1840,7 +1827,6 @@ class PDFGenerator:
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1886,7 +1872,6 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -1), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1982,7 +1967,6 @@ class PDFGenerator:
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2021,7 +2005,6 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2113,7 +2096,6 @@ class PDFGenerator:
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2152,7 +2134,6 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2254,7 +2235,6 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2384,7 +2364,6 @@ class PDFGenerator:
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -2), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2426,7 +2405,6 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2584,7 +2562,6 @@ class PDFGenerator:
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2637,7 +2614,6 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -1), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),

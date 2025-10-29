@@ -23,21 +23,21 @@ from pdf_sender import PDFSender
 
 class PDFGenerator:
     """PDF生成器"""
-    
+
     def __init__(self, feishu_api: FeishuAPI, employee_manager: EmployeeManager, auto_send: bool = True):
         self.feishu_api = feishu_api
         self.employee_manager = employee_manager
         self.auto_send = auto_send
         self.logger = logging.getLogger(__name__)
-        
+
         # 使用中国时区 UTC+8
         self.local_tz = timezone(timedelta(hours=8))
-        
+
         # 创建PDF存储目录
         self.pdf_base_dir = "pdf_reports"
         self.pdf_directories = {
             "采购申请": "procurement",
-            "三方比价": "three_way_comparison", 
+            "三方比价": "three_way_comparison",
             "固定资产": "fixed_asset",
             "费用报销": "expense_reimbursement",
             "浙江采购申请": "zhejiang_procurement",
@@ -47,7 +47,7 @@ class PDFGenerator:
             "知本固定资产验收": "zhiben_fixed_asset"
         }
         self._ensure_directories_exist()
-        
+
         # 初始化PDF发送器
         if self.auto_send:
             self.pdf_sender = PDFSender(feishu_api.app_id, feishu_api.app_secret)
@@ -55,23 +55,23 @@ class PDFGenerator:
         else:
             self.pdf_sender = None
             self.logger.info("自动发送功能已禁用")
-    
+
     def _ensure_directories_exist(self):
         """确保PDF存储目录存在"""
         # 创建基础目录
         os.makedirs(self.pdf_base_dir, exist_ok=True)
-        
+
         # 创建各类PDF的子目录
         for approval_type, dir_name in self.pdf_directories.items():
             dir_path = os.path.join(self.pdf_base_dir, dir_name)
             os.makedirs(dir_path, exist_ok=True)
-    
+
     def _generate_pdf_filename(self, approval_type: str, approval_detail: Dict[str, Any]) -> str:
         """生成PDF文件名（简化版，不包含instance_code）"""
         # 获取申请人信息
         applicant_info = self.employee_manager.get_employee_info_realtime(approval_detail.get('open_id', ''))
         applicant_name = applicant_info.get("name", "未知申请人")
-        
+
         # 获取申请时间
         start_time = approval_detail.get('start_time', '')
         if start_time:
@@ -84,42 +84,42 @@ class PDFGenerator:
                 date_str = datetime.now().strftime("%Y%m%d")
         else:
             date_str = datetime.now().strftime("%Y%m%d")
-        
+
         # 生成时间戳（避免重名）
         current_time = datetime.now().strftime("%H%M%S")
-        
+
         # 生成文件名
         filename = f"{applicant_name}_{date_str}_{current_time}.pdf"
-        
+
         # 获取对应的目录
         dir_name = self.pdf_directories.get(approval_type, "other")
         dir_path = os.path.join(self.pdf_base_dir, dir_name)
-        
+
         # 返回完整路径
         return os.path.join(dir_path, filename)
-    
+
     def _send_and_rename_pdf(self, pdf_path: str, open_id: str) -> str:
         """
         发送PDF并重命名文件添加已发送标识
-        
+
         Args:
             pdf_path: PDF文件路径
             open_id: 接收用户的open_id
-            
+
         Returns:
             重命名后的文件路径
         """
         if not self.auto_send or not self.pdf_sender:
             return pdf_path
-        
+
         try:
             # 发送PDF
             self.logger.info(f"开始发送PDF: {pdf_path}")
             success, message = self.pdf_sender.send_pdf_to_user(pdf_path, open_id)
-            
+
             if success:
                 self.logger.info(f"PDF发送成功: {message}")
-                
+
                 # 重命名文件，添加已发送标识
                 renamed_path = self._add_sent_suffix(pdf_path)
                 self.logger.info(f"PDF已重命名为: {renamed_path}")
@@ -127,18 +127,18 @@ class PDFGenerator:
             else:
                 self.logger.error(f"PDF发送失败: {message}")
                 return pdf_path
-                
+
         except Exception as e:
             self.logger.error(f"发送PDF时发生异常: {e}")
             return pdf_path
-    
+
     def _add_sent_suffix(self, pdf_path: str) -> str:
         """
         为PDF文件名添加已发送标识
-        
+
         Args:
             pdf_path: 原始PDF文件路径
-            
+
         Returns:
             重命名后的文件路径
         """
@@ -147,60 +147,49 @@ class PDFGenerator:
             dir_path = os.path.dirname(pdf_path)
             filename = os.path.basename(pdf_path)
             name, ext = os.path.splitext(filename)
-            
+
             # 添加已发送标识
             new_filename = f"{name}_已发送{ext}"
             new_path = os.path.join(dir_path, new_filename)
-            
+
             # 重命名文件
             os.rename(pdf_path, new_path)
             return new_path
-            
+
         except Exception as e:
             self.logger.error(f"重命名PDF文件失败: {e}")
             return pdf_path
-    
+
     def register_chinese_fonts(self):
         """注册中文字体"""
         try:
             font_paths = [
-                # macOS
-                "/System/Library/Fonts/PingFang.ttc",
-                "/System/Library/Fonts/STHeiti Light.ttc",
-                "/System/Library/Fonts/STHeiti Medium.ttc",
-                "/System/Library/Fonts/Hiragino Sans GB.ttc",
-                "/Library/Fonts/Arial Unicode.ttf",
-                # Linux - 多种常见路径
-                "/usr/share/fonts/truetype/arphic/uming.ttc",
-                "/usr/share/fonts/truetype/arphic/ukai.ttc",
-                "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-                "/usr/share/fonts/google-noto/NotoSansCJK-Regular.ttc",
-                "/usr/share/fonts/chinese/simsun.ttc",
-                "/usr/share/fonts/chinese/uming.ttc",
-                "/usr/share/fonts/chinese/ukai.ttc",
-                "/usr/local/share/fonts/wqy-zenhei/wqy-zenhei.ttc",
-                "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-                "/usr/share/fonts/truetype/arphic/wqy-zenhei.ttc",
-                # Windows
-                "C:/Windows/Fonts/simsun.ttc",
-                "C:/Windows/Fonts/simhei.ttf",
-                "C:/Windows/Fonts/msyh.ttc",
-                "C:/Windows/Fonts/simfang.ttf",
+                "/System/Library/Fonts/PingFang.ttc",  # macOS
+                "/System/Library/Fonts/STHeiti Light.ttc",  # macOS
+                "/System/Library/Fonts/STHeiti Medium.ttc",  # macOS
+                "/System/Library/Fonts/Hiragino Sans GB.ttc",  # macOS
+                "/Library/Fonts/Arial Unicode.ttf",  # macOS
+                "/usr/share/fonts/truetype/arphic/uming.ttc",  # Linux
+                "/usr/share/fonts/truetype/arphic/ukai.ttc",  # Linux
+                "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",  # Linux
+                "/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc",
+                "C:/Windows/Fonts/simsun.ttc",  # Windows
+                "C:/Windows/Fonts/simhei.ttf",  # Windows
+                "C:/Windows/Fonts/msyh.ttc",  # Windows
+                "C:/Windows/Fonts/simfang.ttf",  # Windows
             ]
-            
+
             # 添加当前目录下的字体文件
             current_dir = os.path.dirname(__file__)
             for font_file in os.listdir(current_dir):
                 if font_file.endswith('.ttf') or font_file.endswith('.ttc'):
                     font_paths.append(os.path.join(current_dir, font_file))
-            
+
             registered_fonts = pdfmetrics.getRegisteredFontNames()
             if "ChineseFont" in registered_fonts:
                 print("中文字体已注册")
                 return True
-            
+
             for font_path in font_paths:
                 if os.path.exists(font_path):
                     try:
@@ -213,44 +202,36 @@ class PDFGenerator:
                     except Exception as e:
                         print(f"注册字体失败 {font_path}: {e}")
                         continue
-            
-            print("警告: 未能注册中文字体，将使用默认字体")
-            # 使用 Helvetica 作为后备字体
+
+            print("警告: 未能注册中文字体，中文可能显示为方块")
             return False
         except Exception as e:
             print(f"字体注册过程出错: {e}")
             return False
-    
-    def get_available_font_name(self) -> str:
-        """获取可用的字体名称"""
-        registered_fonts = pdfmetrics.getRegisteredFontNames()
-        if "ChineseFont" in registered_fonts:
-            return "ChineseFont"
-        return "Helvetica"
 
     def create_wrapped_text(self, text: str, font_name: str = "ChineseFont", font_size: int = 9) -> Paragraph:
         """创建支持自动换行的文本段落"""
         styles = getSampleStyleSheet()
         style = styles["Normal"]
-        
+
         registered_fonts = pdfmetrics.getRegisteredFontNames()
         if "ChineseFont" in registered_fonts and font_name == "ChineseFont":
             style.fontName = "ChineseFont"
         else:
             style.fontName = "Helvetica"
-        
+
         style.fontSize = font_size
         style.alignment = 1  # 居中对齐
         style.textColor = colors.black
         style.wordWrap = 'CJK'
         style.firstLineIndent = 0
-        
+
         if text is None:
             text = ""
-        
+
         if not isinstance(text, str):
             text = str(text)
-        
+
         wrapped_text = text.replace("\n", "<br/>")
         wrapped_text = wrapped_text.replace("&", "&amp;")
         wrapped_text = wrapped_text.replace("<", "&lt;")
@@ -274,11 +255,10 @@ class PDFGenerator:
 
     def build_header_block(self):
         """公司信息表头"""
-        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -301,7 +281,8 @@ class PDFGenerator:
             [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
             [Paragraph("采购申请单", sty_big), ""]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm],
+                            rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
             # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
@@ -323,11 +304,10 @@ class PDFGenerator:
 
     def build_header_block_zhejiang(self):
         """公司信息表头 - 浙江采购申请版本"""
-        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -350,7 +330,8 @@ class PDFGenerator:
             [Paragraph("Zhejiang BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
             [Paragraph("采购申请单", sty_big), ""]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm],
+                            rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
             # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
@@ -372,8 +353,7 @@ class PDFGenerator:
 
     def build_approval_info_block(self, serial: str, start_time: str):
         """审批编号和申请时间信息块 - 无框线"""
-        font_name = self.get_available_font_name()
-        sty = ParagraphStyle('AI', fontName=font_name, fontSize=9, textColor=colors.black)
+        sty = ParagraphStyle('AI', fontName='ChineseFont', fontSize=9, textColor=colors.black)
         data = [[Paragraph(f"审批编号：{serial}", sty),
                  Paragraph(f"申请时间：{start_time}", sty)]]
         tbl = Table(data, colWidths=[9.5 * cm, 9.5 * cm], rowHeights=[0.5 * cm])  # 进一步减少行高
@@ -391,9 +371,8 @@ class PDFGenerator:
 
     def build_applicant_info_block(self, applicant_name: str, department_name: str, category: str, delivery_time: str):
         """申请人、采购类别、期望交货时间信息表格"""
-        font_name = self.get_available_font_name()
-        sty_label = ParagraphStyle('Lab', fontName=font_name, fontSize=8, textColor=colors.black)
-        sty_val = ParagraphStyle('Val', fontName=font_name, fontSize=8, textColor=colors.black)
+        sty_label = ParagraphStyle('Lab', fontName='ChineseFont', fontSize=8, textColor=colors.black)
+        sty_val = ParagraphStyle('Val', fontName='ChineseFont', fontSize=8, textColor=colors.black)
 
         data = [[Paragraph("申请人", sty_label), Paragraph(f"{applicant_name}-{department_name}", sty_val),
                  Paragraph("采购类别", sty_label), Paragraph(category, sty_val),
@@ -404,6 +383,7 @@ class PDFGenerator:
         tbl.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 8),  # 调整字体大小
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
@@ -416,14 +396,13 @@ class PDFGenerator:
             ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
         ]))
         return tbl
-    
+
     def build_header_block_expense(self):
         """公司信息表头 - 费用报销版本"""
-        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -446,7 +425,8 @@ class PDFGenerator:
             [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
             [Paragraph("费用报销单", sty_big)]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm],
+                            rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
             # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
@@ -468,10 +448,9 @@ class PDFGenerator:
 
     def build_header_block_zhejiang_expense(self):
         """公司信息表头 - 浙江费用报销版本"""
-        font_name = self.get_available_font_name()
-        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         logo_cell = ""
@@ -492,7 +471,8 @@ class PDFGenerator:
             [Paragraph("Zhejiang BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
             [Paragraph("费用报销单", sty_big)]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm],
+                            rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
             # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
@@ -511,13 +491,12 @@ class PDFGenerator:
             ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
         ]))
         return company_tbl
-    
+
     def build_header_block_zhiben(self):
         """公司信息表头 - 知本采购申请版本"""
-        font_name = self.get_available_font_name()
-        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         logo_cell = ""
@@ -553,13 +532,12 @@ class PDFGenerator:
             ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
         ]))
         return company_tbl
-    
+
     def build_header_block_zhiben_expense(self):
         """公司信息表头 - 知本费用报销版本"""
-        font_name = self.get_available_font_name()
-        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         logo_cell = ""
@@ -586,13 +564,12 @@ class PDFGenerator:
             ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
         ]))
         return company_tbl
-    
+
     def build_header_block_zhiben_fixed_asset(self):
         """公司信息表头 - 知本固定资产验收版本"""
-        font_name = self.get_available_font_name()
-        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         logo_cell = ""
@@ -619,12 +596,12 @@ class PDFGenerator:
             ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
         ]))
         return company_tbl
-    
-    def build_applicant_info_block_expense(self, applicant_name: str, department_name: str, reimbursement_reason: str, total_amount: str):
+
+    def build_applicant_info_block_expense(self, applicant_name: str, department_name: str, reimbursement_reason: str,
+                                           total_amount: str):
         """申请人、报销事由、费用汇总信息表格"""
-        font_name = self.get_available_font_name()
-        sty_label = ParagraphStyle('Lab', fontName=font_name, fontSize=8, textColor=colors.black)
-        sty_val = ParagraphStyle('Val', fontName=font_name, fontSize=8, textColor=colors.black)
+        sty_label = ParagraphStyle('Lab', fontName='ChineseFont', fontSize=8, textColor=colors.black)
+        sty_val = ParagraphStyle('Val', fontName='ChineseFont', fontSize=8, textColor=colors.black)
 
         data = [[Paragraph("申请人", sty_label), Paragraph(f"{applicant_name}-{department_name}", sty_val),
                  Paragraph("费用汇总", sty_label), Paragraph(str(total_amount), sty_val),
@@ -635,6 +612,7 @@ class PDFGenerator:
         tbl.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 8),  # 调整字体大小
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
@@ -659,7 +637,7 @@ class PDFGenerator:
                 ms = int(value)
             else:
                 ms = int(value)
-            if ms < 10**12:
+            if ms < 10 ** 12:
                 return ""
             dt = datetime.fromtimestamp(ms / 1000.0, self.local_tz)
             return dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -671,7 +649,7 @@ class PDFGenerator:
         try:
             if not date_str:
                 return ""
-            
+
             # 如果包含T，说明是ISO格式，需要解析时区
             if 'T' in date_str:
                 # 解析ISO格式日期
@@ -681,7 +659,7 @@ class PDFGenerator:
                     date_str = date_str.split('+')[0]
                 elif 'Z' in date_str:
                     date_str = date_str.replace('Z', '')
-                
+
                 # 解析为datetime对象
                 dt = datetime.fromisoformat(date_str)
                 # 转换为中国时区
@@ -718,7 +696,7 @@ class PDFGenerator:
                                 item[cell_name] = cell_value
                             items.append(item)
                         result[widget_name] = items
-                        
+
                         # 处理费用明细的汇总信息
                         if widget_name == '费用明细' and 'ext' in widget:
                             ext_data = widget.get('ext', [])
@@ -743,7 +721,7 @@ class PDFGenerator:
                         # 处理费用明细的ext字段
                         result[widget_name] = widget
                 else:
-                    # 对于其他类型的控件，直接存储value                                               
+                    # 对于其他类型的控件，直接存储value
                     result[widget_name] = widget_value
 
             return result
@@ -755,12 +733,12 @@ class PDFGenerator:
                 fixed_json = form_json.replace('\\"', '"').replace('\\n', '\n')
                 form_data = json.loads(fixed_json)
                 result = {}
-                
+
                 for widget in form_data:
                     widget_name = widget.get('name', '')
                     widget_type = widget.get('type', '')
                     widget_value = widget.get('value', '')
-                    
+
                     if widget_type == 'fieldList' and isinstance(widget_value, list):
                         items = []
                         for row in widget_value:
@@ -773,7 +751,7 @@ class PDFGenerator:
                         result[widget_name] = items
                     else:
                         result[widget_name] = widget_value
-                
+
                 print("使用修复后的JSON解析成功")
                 return result
             except Exception as e2:
@@ -883,10 +861,10 @@ class PDFGenerator:
         try:
             # 注册中文字体
             self.register_chinese_fonts()
-            
+
             # 生成PDF文件名（使用新的命名规则和目录结构）
             output_filename = self._generate_pdf_filename("采购申请", approval_detail)
-            
+
             # 创建PDF文档 - 采用generate_pdf_report的页面设置
             doc = SimpleDocTemplate(
                 output_filename,
@@ -897,32 +875,33 @@ class PDFGenerator:
                 leftMargin=1 * cm
             )
             story = []
-            
+
             # 获取样式
             styles = getSampleStyleSheet()
-            
+
             # 1. 公司信息表头
             story.append(self.build_header_block())
             story.append(Spacer(1, 5))  # 减少间距
-            
+
             # 2. 审批信息（审批编号和申请时间）
             # 实时获取申请人信息
             applicant_info = self.employee_manager.get_employee_info_realtime(approval_detail.get('open_id', ''))
             applicant_name = applicant_info["name"]
             department_name = self.feishu_api.get_department_name(approval_detail.get('department_id', ''))
             start_time_formatted = self.format_time_without_timezone(approval_detail.get('start_time', ''))
-            
+
             story.append(self.build_approval_info_block(
                 approval_detail.get('serial_number', 'N/A'),
                 start_time_formatted
             ))
             story.append(Spacer(1, 8))  # 减少间距
-            
+
             # 3. 申请人信息表格
             form_data = self.parse_form_data(approval_detail.get('form', '[]'))
             category = form_data.get('采购类别', '未知')
-            delivery_time = form_data.get('期望交货时间', '').split('T')[0] if 'T' in form_data.get('期望交货时间', '') else '未知'
-            
+            delivery_time = form_data.get('期望交货时间', '').split('T')[0] if 'T' in form_data.get('期望交货时间',
+                                                                                                    '') else '未知'
+
             story.append(self.build_applicant_info_block(
                 applicant_name,
                 department_name,
@@ -930,39 +909,40 @@ class PDFGenerator:
                 delivery_time
             ))
             story.append(Spacer(1, 8))  # 减少间距
-            
+
             # 4. 费用明细表格
             if '费用明细' in form_data and form_data['费用明细']:
                 # 从原始表单中获取汇总信息与币种
                 summary_info = form_data.get('费用明细_summary', {})
                 currency_code = summary_info.get('currency') or ''
-                
+
                 # 费用表格（若有币种，在列名中展示）
                 unit_price_header = '单价' + (f"({currency_code})" if currency_code else '')
                 amount_header = '总价' + (f"({currency_code})" if currency_code else '')
-                detail_headers = ['序号', '商品名称', '商品明细', '规格型号', '单位', '数量', unit_price_header, amount_header, '请购理由',
+                detail_headers = ['序号', '商品名称', '商品明细', '规格型号', '单位', '数量', unit_price_header,
+                                  amount_header, '请购理由',
                                   '需求人', '备注']
                 detail_data = [detail_headers]
-                
+
                 # 行数据直接使用接口返回的"单价"、"金额"，不再自行计算
                 calc_total_fallback = 0.0
                 for idx, item in enumerate(form_data['费用明细'], 1):
                     q_val = item.get('数量', '')
                     p_val = item.get('单价', '')
                     t_val = item.get('金额', '')
-                    
+
                     # 尝试用于兜底统计
                     try:
                         calc_total_fallback += float(t_val)
                     except Exception:
                         pass
-                    
+
                     detail_data.append([
                         str(idx), item.get('商品及其辅助属性', ''), item.get('名称', ''), item.get('规格型号', ''),
                         item.get('单位', ''), str(q_val), str(p_val), str(t_val),
                         item.get('请购理由', ''), item.get('需求人', ''), item.get('备注', '')
                     ])
-                
+
                 # 总金额优先使用表单汇总，其次用行金额求和兜底
                 total_amount_display = None
                 total_from_summary = summary_info.get('total_amount')
@@ -972,9 +952,9 @@ class PDFGenerator:
                     total_amount_display = total_from_summary
                 else:
                     total_amount_display = f"{calc_total_fallback:.2f}"
-                
+
                 detail_data.append(['总金额', '', '', '', '', '', '', total_amount_display, '', '', ''])
-                
+
                 detail_tbl = Table(self.process_table_data_for_pdf(detail_data),
                                    colWidths=[1.0 * cm,  # 序号
                                               2.3 * cm,  # 商品名称
@@ -988,12 +968,13 @@ class PDFGenerator:
                                               1.6 * cm,  # 需求人
                                               2.2 * cm]  # 备注
                                    )  # 调整列宽，总宽度19cm
-                
+
                 detail_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1008,24 +989,24 @@ class PDFGenerator:
                 ]))
                 story.append(detail_tbl)
                 story.append(Spacer(1, 10))  # 减少间距
-            
+
             # 5. 审批进程（费用表格之后）
             timeline = approval_detail.get("timeline", [])
             task_list = approval_detail.get("task_list", [])
             if timeline:
                 # 格式化审批进程表格
                 timeline_table = self.format_timeline_table(timeline, task_list)
-                
+
                 # 处理签名图片
                 modified_timeline_data = []
                 timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
                 modified_timeline_data.append(timeline_headers)
-                
+
                 for row in timeline_table:
                     processor_name = row[2]
                     # 通过姓名获取签名图片路径
                     signature_path = self.employee_manager.get_signature_image_path(processor_name)
-                    
+
                     if signature_path:
                         try:
                             signature_img = Image(signature_path, width=36, height=15)
@@ -1038,14 +1019,16 @@ class PDFGenerator:
                     else:
                         # 移除处理意见列（第4列）
                         modified_timeline_data.append(row[:4] + row[5:])
-                
+
                 # 创建单个审批进程表格
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
-                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 7.5 * cm])  # 总宽度19cm，移除处理意见列后调整列宽
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm,
+                                                7.5 * cm])  # 总宽度19cm，移除处理意见列后调整列宽
                 timeline_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -1), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1057,15 +1040,15 @@ class PDFGenerator:
                     ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
                 ]))
                 story.append(timeline_tbl)
-            
+
             # 生成PDF
             doc.build(story)
             print(f"采购申请PDF报告已生成: {output_filename}")
-            
+
             # 自动发送并重命名
             final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
             return final_filename
-            
+
         except Exception as e:
             print(f"生成采购申请PDF失败: {e}")
             import traceback
@@ -1074,11 +1057,10 @@ class PDFGenerator:
 
     def build_header_block_procurement(self):
         """公司信息表头 - 三方比价单版本"""
-        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -1101,7 +1083,8 @@ class PDFGenerator:
             [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
             [Paragraph("三方比价单", sty_big)]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm],
+                            rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
             # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
@@ -1121,13 +1104,14 @@ class PDFGenerator:
         ]))
         return company_tbl
 
-    def build_procurement_requirement_table(self, form_data: Dict[str, Any], applicant_name: str, department_name: str) -> Table:
+    def build_procurement_requirement_table(self, form_data: Dict[str, Any], applicant_name: str,
+                                            department_name: str) -> Table:
         """构建采购需求表格"""
         # 获取表单数据
         category = form_data.get('采购类别', '')
         material_description = form_data.get('物料描述/服务', '')  # 修正字段名
         procurement_requirement = form_data.get('请购理由', '')  # 修正字段名
-        
+
         # 构建表格数据
         table_data = [
             [self.create_wrapped_text('采购需求表')],
@@ -1135,9 +1119,9 @@ class PDFGenerator:
             ['采购类别', category, '物料描述/服务', material_description],
             ['请购理由', procurement_requirement, '', '']
         ]
-        
+
         tbl = Table(self.process_table_data_for_pdf(table_data),
-                   colWidths=[3.0 * cm, 5.0 * cm, 3.0 * cm, 8.0 * cm])
+                    colWidths=[3.0 * cm, 5.0 * cm, 3.0 * cm, 8.0 * cm])
         tbl.setStyle(TableStyle([
             ('SPAN', (0, 0), (-1, 0)),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
@@ -1152,6 +1136,7 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, 0), 7),
             ('FONTSIZE', (0, 1), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1167,7 +1152,7 @@ class PDFGenerator:
         """构建三方比价表格"""
         headers = ['序号', '供应商名称', '规格型号', '价格', '备注']
         table_data = [[self.create_wrapped_text('三方比价表')], headers]
-        
+
         # 从表单数据中获取三方比价信息
         three_way_comparison = form_data.get('三方比价', [])
         if three_way_comparison and isinstance(three_way_comparison, list):
@@ -1177,7 +1162,7 @@ class PDFGenerator:
                     supplier_name = ''
                     spec_model = ''
                     price = ''
-                    
+
                     for item in supplier_data:
                         if isinstance(item, dict):
                             if item.get('name') == '供应商名称':
@@ -1200,7 +1185,7 @@ class PDFGenerator:
                                             price = f"{currency} {int(price_value):,}"
                                     except:
                                         price = str(price_value)
-                    
+
                     table_data.append([str(idx), supplier_name, spec_model, price, ''])
                 elif isinstance(supplier_data, dict):
                     # 处理字典格式的数据
@@ -1223,15 +1208,15 @@ class PDFGenerator:
                             price = str(price_value)
                     else:
                         price = ''
-                    
+
                     table_data.append([str(idx), supplier_name, spec_model, price, ''])
         else:
             # 如果没有数据，添加空行供填写
             for i in range(3):
-                table_data.append([str(i+1), '', '', '', ''])
-        
+                table_data.append([str(i + 1), '', '', '', ''])
+
         tbl = Table(self.process_table_data_for_pdf(table_data),
-                   colWidths=[2.0 * cm, 4.0 * cm, 4.0 * cm, 3.0 * cm, 6.0 * cm])
+                    colWidths=[2.0 * cm, 4.0 * cm, 4.0 * cm, 3.0 * cm, 6.0 * cm])
         tbl.setStyle(TableStyle([
             ('SPAN', (0, 0), (-1, 0)),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
@@ -1241,6 +1226,7 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 1), (-1, 1), 7),
             ('FONTSIZE', (0, 2), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1256,19 +1242,20 @@ class PDFGenerator:
         """构建采购意见表格"""
         # 从表单数据中获取采购意见
         procurement_opinion = form_data.get('采购意见', '')
-        
+
         # 构建表格数据
         table_data = [
             ['采购意见', procurement_opinion]
         ]
-        
+
         tbl = Table(self.process_table_data_for_pdf(table_data),
-                   colWidths=[3.0 * cm, 16.0 * cm])
+                    colWidths=[3.0 * cm, 16.0 * cm])
         tbl.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (0, 0), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -1284,10 +1271,10 @@ class PDFGenerator:
         try:
             # 注册中文字体
             self.register_chinese_fonts()
-            
+
             # 生成PDF文件名（使用新的命名规则和目录结构）
             output_filename = self._generate_pdf_filename("三方比价", approval_detail)
-            
+
             # 创建PDF文档
             doc = SimpleDocTemplate(
                 output_filename,
@@ -1298,54 +1285,55 @@ class PDFGenerator:
                 leftMargin=1 * cm
             )
             story = []
-            
+
             # 1. 公司信息表头
             story.append(self.build_header_block_procurement())
             story.append(Spacer(1, 5))
-            
+
             # 2. 审批信息（审批编号和申请时间）
             applicant_info = self.employee_manager.get_employee_info_realtime(approval_detail.get('open_id', ''))
             applicant_name = applicant_info["name"]
             department_name = self.feishu_api.get_department_name(approval_detail.get('department_id', ''))
             start_time_formatted = self.format_time_without_timezone(approval_detail.get('start_time', ''))
-            
+
             story.append(self.build_approval_info_block(
                 approval_detail.get('serial_number', 'N/A'),
                 start_time_formatted
             ))
             story.append(Spacer(1, 8))
-            
+
             # 3. 采购需求表格
             form_data = self.parse_form_data(approval_detail.get('form', '[]'))
-            procurement_requirement_table = self.build_procurement_requirement_table(form_data, applicant_name, department_name)
+            procurement_requirement_table = self.build_procurement_requirement_table(form_data, applicant_name,
+                                                                                     department_name)
             story.append(procurement_requirement_table)
             story.append(Spacer(1, 10))
-            
+
             # 4. 三方比价表格
             three_way_comparison_table = self.build_three_way_comparison_table(form_data)
             story.append(three_way_comparison_table)
             story.append(Spacer(1, 10))
-            
+
             # 5. 采购意见表格
             procurement_opinion_table = self.build_procurement_opinion_table(form_data)
             story.append(procurement_opinion_table)
             story.append(Spacer(1, 10))
-            
+
             # 6. 审批进程表格
             timeline = approval_detail.get("timeline", [])
             task_list = approval_detail.get("task_list", [])
             if timeline:
                 timeline_table = self.format_timeline_table(timeline, task_list)
-                
+
                 # 处理签名图片
                 modified_timeline_data = []
                 timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理意见', '处理时间']
                 modified_timeline_data.append(timeline_headers)
-                
+
                 for row in timeline_table:
                     processor_name = row[2]
                     signature_path = self.employee_manager.get_signature_image_path(processor_name)
-                    
+
                     if signature_path:
                         try:
                             signature_img = Image(signature_path, width=36, height=15)
@@ -1355,13 +1343,14 @@ class PDFGenerator:
                             modified_timeline_data.append(row)
                     else:
                         modified_timeline_data.append(row)
-                
+
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
                                      colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])
                 timeline_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1373,29 +1362,27 @@ class PDFGenerator:
                     ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
                 ]))
                 story.append(timeline_tbl)
-            
+
             # 生成PDF
             doc.build(story)
             print(f"三方比价PDF报告已生成: {output_filename}")
-            
+
             # 自动发送并重命名
             final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
             return final_filename
-            
+
         except Exception as e:
             print(f"生成三方比价PDF失败: {e}")
             import traceback
             traceback.print_exc()
             return None
 
-
     def build_header_block_fixed_asset(self):
         """公司信息表头 - 固定资产验收版本"""
-        font_name = self.get_available_font_name()
         # 公司信息样式 - 减少spaceBefore和spaceAfter，避免文字压在框线上
-        sty_big = ParagraphStyle('HB1', fontName=font_name, fontSize=14, alignment=1, textColor=colors.black,
+        sty_big = ParagraphStyle('HB1', fontName='ChineseFont', fontSize=14, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
-        sty_sml = ParagraphStyle('HB2', fontName=font_name, fontSize=8, alignment=1, textColor=colors.black,
+        sty_sml = ParagraphStyle('HB2', fontName='ChineseFont', fontSize=8, alignment=1, textColor=colors.black,
                                  spaceBefore=0, spaceAfter=0)
 
         # 准备 Logo 图（放在第一行最左侧单元格）
@@ -1411,18 +1398,26 @@ class PDFGenerator:
         except Exception:
             logo_cell = ""
 
-        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
+        # 创建公司信息表格：第一行两列仅放 Logo；文本各行合并两列，确保绝对居中
         company_data = [
-            [logo_cell, Paragraph("上海硼矩新材料科技有限公司", sty_big)],
-            ["", Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("固定资产验收单", sty_big)]  # 修改为固定资产验收单
+            [logo_cell, ""],
+            [Paragraph("上海硼矩新材料科技有限公司", sty_big), ""],
+            [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("固定资产验收单", sty_big)]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm],
+                            rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
+            # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+            # 公司名与副标题、单据名行合并两列并绝对居中
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('SPAN', (0, 3), (1, 3)),
+            ('ALIGN', (0, 1), (1, 3), 'CENTER'),
+            ('VALIGN', (0, 1), (1, 3), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -1433,8 +1428,7 @@ class PDFGenerator:
 
     def build_approval_info_block_fixed_asset(self, serial: str, start_time: str, supplier: str):
         """审批编号、申请时间和供应商信息块 - 无框线"""
-        font_name = self.get_available_font_name()
-        sty = ParagraphStyle('AI', fontName=font_name, fontSize=9, textColor=colors.black)
+        sty = ParagraphStyle('AI', fontName='ChineseFont', fontSize=9, textColor=colors.black)
         data = [[Paragraph(f"审批编号：{serial}", sty),
                  Paragraph(f"申请时间：{start_time}", sty),
                  Paragraph(f"供应商：{supplier}", sty)]]
@@ -1456,15 +1450,15 @@ class PDFGenerator:
         """构建资产信息表格（首行表名，列宽总计19cm）"""
         headers = ['序号', '资产编码', '名称', '规格型号', '数量/单位', '到货日期', '购置日期']
         table_data = [[self.create_wrapped_text('资产信息')], headers]
-        
+
         for idx, asset in enumerate(asset_data, 1):
             # 格式化日期
             arrival_date = self.format_date_string(asset.get('到货日期', ''))
             purchase_date = self.format_date_string(asset.get('购置日期', ''))
-            
+
             # 直接使用数量/单位字段
             quantity_unit = asset.get('数量/单位', '')
-            
+
             table_data.append([
                 str(idx),
                 '',  # 资产编码 - 从数据中提取或留空
@@ -1474,9 +1468,9 @@ class PDFGenerator:
                 arrival_date,
                 purchase_date
             ])
-        
+
         tbl = Table(self.process_table_data_for_pdf(table_data),
-                   colWidths=[1.5 * cm, 2.0 * cm, 3.5 * cm, 3.5 * cm, 2.5 * cm, 3.0 * cm, 3.0 * cm])
+                    colWidths=[1.5 * cm, 2.0 * cm, 3.5 * cm, 3.5 * cm, 2.5 * cm, 3.0 * cm, 3.0 * cm])
         tbl.setStyle(TableStyle([
             ('SPAN', (0, 0), (-1, 0)),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
@@ -1486,6 +1480,7 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 1), (-1, 1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 1), (-1, 1), 7),
             ('FONTSIZE', (0, 2), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1501,9 +1496,9 @@ class PDFGenerator:
         """构建配件清单表格（首行表名，列宽总计19cm）"""
         headers = ['序号', '名称', '规格型号', '数量/单位', '备注']
         table_data = [[self.create_wrapped_text('配件清单')], headers]
-        
+
         tbl = Table(self.process_table_data_for_pdf(table_data),
-                   colWidths=[1.5 * cm, 4.0 * cm, 3.0 * cm, 3.0 * cm, 7.5 * cm])
+                    colWidths=[1.5 * cm, 4.0 * cm, 3.0 * cm, 3.0 * cm, 7.5 * cm])
         tbl.setStyle(TableStyle([
             ('SPAN', (0, 0), (-1, 0)),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
@@ -1513,6 +1508,7 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 1), (-1, 1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 1), (-1, 1), 7),
             ('FONTSIZE', (0, 2), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1530,41 +1526,41 @@ class PDFGenerator:
         # 右列：2.规格型号是否符合, 4.外观包装是否完好
         left_headers = ['1.数量是否符合', '3.配件是否齐全', '5.功能测试结果']
         right_headers = ['2.规格型号是否符合', '4.外观包装是否完好']
-        
+
         # 获取表单数据
         quantity_match = form_data.get('1.数量是否符合', '')
         spec_match = form_data.get('2.规格型号是否符合', '')
         accessories_complete = form_data.get('3.配件是否齐全', '')
         appearance_ok = form_data.get('4.外观包装是否完好', '')
         function_test = form_data.get('5.功能测试结果', '')
-        
+
         # 构建表格数据
         table_data = [[self.create_wrapped_text('验收情况（验收人填写）')]]
         max_rows = max(len(left_headers), len(right_headers))
-        
+
         for i in range(max_rows):
             left_item = left_headers[i] if i < len(left_headers) else ''
             right_item = right_headers[i] if i < len(right_headers) else ''
-            
+
             left_value = ''
             right_value = ''
-            
+
             if i == 0:  # 1.数量是否符合
                 left_value = quantity_match
             elif i == 1:  # 3.配件是否齐全
                 left_value = accessories_complete
             elif i == 2:  # 5.功能测试结果
                 left_value = function_test
-                
+
             if i == 0:  # 2.规格型号是否符合
                 right_value = spec_match
             elif i == 1:  # 4.外观包装是否完好
                 right_value = appearance_ok
-            
+
             table_data.append([left_item, left_value, right_item, right_value])
-        
+
         tbl = Table(self.process_table_data_for_pdf(table_data),
-                   colWidths=[6.0 * cm, 3.5 * cm, 6.0 * cm, 3.5 * cm])
+                    colWidths=[6.0 * cm, 3.5 * cm, 6.0 * cm, 3.5 * cm])
         tbl.setStyle(TableStyle([
             ('SPAN', (0, 0), (-1, 0)),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
@@ -1572,6 +1568,7 @@ class PDFGenerator:
             ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, 0), 7),
             ('FONTSIZE', (0, 1), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1590,16 +1587,16 @@ class PDFGenerator:
         other_notes = form_data.get('其他情况说明', '')
         participants = form_data.get('参与验收人员', '')
         acceptance_date = form_data.get('验收日期', '')
-        
+
         # 构建表格数据
         table_data = [[self.create_wrapped_text('验收记录（验收人填写）')],
-            ['验收结果', acceptance_result, '', ''],
-            ['其他情况说明', other_notes, '', ''],
-            ['参与验收人员', participants, '验收日期', acceptance_date]
-        ]
-        
+                      ['验收结果', acceptance_result, '', ''],
+                      ['其他情况说明', other_notes, '', ''],
+                      ['参与验收人员', participants, '验收日期', acceptance_date]
+                      ]
+
         tbl = Table(self.process_table_data_for_pdf(table_data),
-                   colWidths=[3.0 * cm, 8.0 * cm, 3.0 * cm, 5.0 * cm])
+                    colWidths=[3.0 * cm, 8.0 * cm, 3.0 * cm, 5.0 * cm])
         tbl.setStyle(TableStyle([
             ('SPAN', (0, 0), (-1, 0)),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
@@ -1613,6 +1610,7 @@ class PDFGenerator:
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
             ('FONTSIZE', (0, 0), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -1628,10 +1626,10 @@ class PDFGenerator:
         try:
             # 注册中文字体
             self.register_chinese_fonts()
-            
+
             # 生成PDF文件名（使用新的命名规则和目录结构）
             output_filename = self._generate_pdf_filename("固定资产", approval_detail)
-            
+
             # 创建PDF文档
             doc = SimpleDocTemplate(
                 output_filename,
@@ -1642,59 +1640,59 @@ class PDFGenerator:
                 leftMargin=1 * cm
             )
             story = []
-            
+
             # 1. 公司信息表头
             story.append(self.build_header_block_fixed_asset())
             story.append(Spacer(1, 5))
-            
+
             # 2. 审批信息（审批编号、申请时间、供应商）
             form_data = self.parse_form_data(approval_detail.get('form', '[]'))
             supplier = form_data.get('供应商', '未知')
             start_time_formatted = self.format_time_without_timezone(approval_detail.get('start_time', ''))
-            
+
             story.append(self.build_approval_info_block_fixed_asset(
                 approval_detail.get('serial_number', 'N/A'),
                 start_time_formatted,
                 supplier
             ))
             story.append(Spacer(1, 8))
-            
+
             # 3. 资产信息表格
             if '资产信息' in form_data and form_data['资产信息']:
                 asset_table = self.build_asset_info_table(form_data['资产信息'])
                 story.append(asset_table)
                 story.append(Spacer(1, 10))
-            
+
             # 4. 配件清单表格
             accessory_table = self.build_accessory_list_table()
             story.append(accessory_table)
             story.append(Spacer(1, 10))
-            
+
             # 5. 验收情况表格
             acceptance_check_table = self.build_acceptance_check_table(form_data)
             story.append(acceptance_check_table)
             story.append(Spacer(1, 10))
-            
+
             # 6. 验收记录表格
             acceptance_record_table = self.build_acceptance_record_table(form_data)
             story.append(acceptance_record_table)
             story.append(Spacer(1, 10))
-            
+
             # 7. 审批进程表格
             timeline = approval_detail.get("timeline", [])
             task_list = approval_detail.get("task_list", [])
             if timeline:
                 timeline_table = self.format_timeline_table(timeline, task_list)
-                
+
                 # 处理签名图片
                 modified_timeline_data = []
                 timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理意见', '处理时间']
                 modified_timeline_data.append(timeline_headers)
-                
+
                 for row in timeline_table:
                     processor_name = row[2]
                     signature_path = self.employee_manager.get_signature_image_path(processor_name)
-                    
+
                     if signature_path:
                         try:
                             signature_img = Image(signature_path, width=36, height=15)
@@ -1704,13 +1702,14 @@ class PDFGenerator:
                             modified_timeline_data.append(row)
                     else:
                         modified_timeline_data.append(row)
-                
+
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
                                      colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])
                 timeline_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1722,15 +1721,15 @@ class PDFGenerator:
                     ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
                 ]))
                 story.append(timeline_tbl)
-            
+
             # 生成PDF
             doc.build(story)
             print(f"固定资产验收PDF报告已生成: {output_filename}")
-            
+
             # 自动发送并重命名
             final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
             return final_filename
-            
+
         except Exception as e:
             print(f"生成固定资产验收PDF失败: {e}")
             import traceback
@@ -1742,10 +1741,10 @@ class PDFGenerator:
         try:
             # 注册中文字体
             self.register_chinese_fonts()
-            
+
             # 生成PDF文件名（使用新的命名规则和目录结构）
             output_filename = self._generate_pdf_filename("费用报销", approval_detail)
-            
+
             # 创建PDF文档 - 采用与采购申请相同的页面设置
             doc = SimpleDocTemplate(
                 output_filename,
@@ -1756,32 +1755,32 @@ class PDFGenerator:
                 leftMargin=1 * cm
             )
             story = []
-            
+
             # 获取样式
             styles = getSampleStyleSheet()
-            
+
             # 1. 公司信息表头（修改为费用报销）
             story.append(self.build_header_block_expense())
             story.append(Spacer(1, 5))  # 减少间距
-            
+
             # 2. 审批信息（审批编号和申请时间）
             # 实时获取申请人信息
             applicant_info = self.employee_manager.get_employee_info_realtime(approval_detail.get('open_id', ''))
             applicant_name = applicant_info["name"]
             department_name = self.feishu_api.get_department_name(approval_detail.get('department_id', ''))
             start_time_formatted = self.format_time_without_timezone(approval_detail.get('start_time', ''))
-            
+
             story.append(self.build_approval_info_block(
                 approval_detail.get('serial_number', 'N/A'),
                 start_time_formatted
             ))
             story.append(Spacer(1, 8))  # 减少间距
-            
+
             # 3. 申请人信息表格
             form_data = self.parse_form_data(approval_detail.get('form', '[]'))
             reimbursement_reason = form_data.get('报销事由', '未知')
             total_amount = form_data.get('费用汇总', '未知')
-            
+
             story.append(self.build_applicant_info_block_expense(
                 applicant_name,
                 department_name,
@@ -1789,43 +1788,43 @@ class PDFGenerator:
                 total_amount
             ))
             story.append(Spacer(1, 8))  # 减少间距
-            
+
             # 4. 费用明细表格
             expense_details = []
             if '费用明细' in form_data and form_data['费用明细']:
                 # 从原始表单中获取汇总信息与币种
                 summary_info = form_data.get('费用明细_summary', {})
                 currency_code = summary_info.get('currency') or 'CNY'
-                
+
                 # 费用表格（若有币种，在列名中展示）
                 amount_header = '金额' + (f"({currency_code})" if currency_code else '')
                 detail_headers = ['序号', '报销类型', '日期', '内容', amount_header]
                 detail_data = [detail_headers]
-                
+
                 # 行数据直接使用接口返回的金额
                 calc_total_fallback = 0.0
                 for idx, item in enumerate(form_data['费用明细'], 1):
                     amount_val = item.get('金额', '')
-                    
+
                     # 尝试用于兜底统计
                     try:
                         calc_total_fallback += float(amount_val)
                     except Exception:
                         pass
-                    
+
                     # 格式化日期
                     date_val = item.get('日期（年-月-日）', '')
                     date_val = self.format_date_string(date_val)
-                    
+
                     detail_data.append([
-                        str(idx), 
-                        item.get('报销类型', ''), 
+                        str(idx),
+                        item.get('报销类型', ''),
                         date_val,
                         item.get('内容', ''),
                         str(amount_val)
                     ])
                     expense_details.append(item)
-                
+
                 detail_tbl = Table(self.process_table_data_for_pdf(detail_data),
                                    colWidths=[1.5 * cm,  # 序号
                                               2.5 * cm,  # 报销类型
@@ -1833,12 +1832,13 @@ class PDFGenerator:
                                               8.0 * cm,  # 内容
                                               4.5 * cm]  # 金额
                                    )  # 总宽度19cm
-                
+
                 detail_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1850,24 +1850,24 @@ class PDFGenerator:
                 ]))
                 story.append(detail_tbl)
                 story.append(Spacer(1, 10))  # 减少间距
-            
+
             # 5. 审批进程（费用表格之后）
             timeline = approval_detail.get("timeline", [])
             task_list = approval_detail.get("task_list", [])
             if timeline:
                 # 格式化审批进程表格
                 timeline_table = self.format_timeline_table(timeline, task_list)
-                
+
                 # 处理签名图片
                 modified_timeline_data = []
-                timeline_headers = ['序号', '节点名称', '处理人', '处理结果',  '处理意见','处理时间']
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理意见', '处理时间']
                 modified_timeline_data.append(timeline_headers)
-                
+
                 for row in timeline_table:
                     processor_name = row[2]
                     # 通过姓名获取签名图片路径
                     signature_path = self.employee_manager.get_signature_image_path(processor_name)
-                    
+
                     if signature_path:
                         try:
                             signature_img = Image(signature_path, width=36, height=15)
@@ -1877,13 +1877,15 @@ class PDFGenerator:
                             modified_timeline_data.append(row)
                     else:
                         modified_timeline_data.append(row)
-                
+
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
-                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm, 4.0 * cm])  # 总宽度19cm，与表头完全一致
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 3.5 * cm,
+                                                4.0 * cm])  # 总宽度19cm，与表头完全一致
                 timeline_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -1), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1895,15 +1897,15 @@ class PDFGenerator:
                     ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
                 ]))
                 story.append(timeline_tbl)
-            
+
             # 生成PDF
             doc.build(story)
             print(f"费用报销PDF报告已生成: {output_filename}")
-            
+
             # 自动发送并重命名
             final_filename = self._send_and_rename_pdf(output_filename, approval_detail.get('open_id', ''))
             return final_filename
-            
+
         except Exception as e:
             print(f"生成费用报销PDF失败: {e}")
             import traceback
@@ -1945,7 +1947,8 @@ class PDFGenerator:
             # 3. 申请人信息
             form_data = self.parse_form_data(approval_detail.get('form', '[]'))
             reimbursement_reason = form_data.get('报销事由', '未知')
-            total_amount = form_data.get('费用汇总', '') or form_data.get('费用明细_summary', {}).get('total_amount', '')
+            total_amount = form_data.get('费用汇总', '') or form_data.get('费用明细_summary', {}).get('total_amount',
+                                                                                                      '')
             story.append(self.build_applicant_info_block_expense(
                 applicant_name,
                 department_name,
@@ -1979,6 +1982,7 @@ class PDFGenerator:
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -1997,7 +2001,7 @@ class PDFGenerator:
             if timeline:
                 timeline_table = self.format_timeline_table(timeline, task_list)
                 modified_timeline_data = []
-                timeline_headers = ['序号', '节点名称', '处理人', '处理结果',  '处理意见','处理时间']
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理意见', '处理时间']
                 modified_timeline_data.append(timeline_headers)
                 for row in timeline_table:
                     processor_name = row[2]
@@ -2017,6 +2021,7 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2074,7 +2079,8 @@ class PDFGenerator:
             # 3. 申请人信息
             form_data = self.parse_form_data(approval_detail.get('form', '[]'))
             reimbursement_reason = form_data.get('报销事由', '未知')
-            total_amount = form_data.get('费用汇总', '') or form_data.get('费用明细_summary', {}).get('total_amount', '')
+            total_amount = form_data.get('费用汇总', '') or form_data.get('费用明细_summary', {}).get('total_amount',
+                                                                                                      '')
             story.append(self.build_applicant_info_block_expense(
                 applicant_name,
                 department_name,
@@ -2108,6 +2114,7 @@ class PDFGenerator:
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2126,7 +2133,7 @@ class PDFGenerator:
             if timeline:
                 timeline_table = self.format_timeline_table(timeline, task_list)
                 modified_timeline_data = []
-                timeline_headers = ['序号', '节点名称', '处理人', '处理结果',  '处理意见','处理时间']
+                timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理意见', '处理时间']
                 modified_timeline_data.append(timeline_headers)
                 for row in timeline_table:
                     processor_name = row[2]
@@ -2146,6 +2153,7 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2247,6 +2255,7 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2304,7 +2313,8 @@ class PDFGenerator:
             # 3. 申请人信息
             form_data = self.parse_form_data(approval_detail.get('form', '[]'))
             category = form_data.get('采购类别', '未知')
-            delivery_time = form_data.get('期望交货时间', '').split('T')[0] if 'T' in form_data.get('期望交货时间', '') else '未知'
+            delivery_time = form_data.get('期望交货时间', '').split('T')[0] if 'T' in form_data.get('期望交货时间',
+                                                                                                    '') else '未知'
             story.append(self.build_applicant_info_block(
                 applicant_name,
                 department_name,
@@ -2324,12 +2334,13 @@ class PDFGenerator:
                     for k in first_row.keys():
                         if isinstance(k, str) and k.startswith('单价(') and k.endswith(')'):
                             price_key = k
-                            unit_name = k[k.find('(')+1:k.rfind(')')].strip() or '元'
+                            unit_name = k[k.find('(') + 1:k.rfind(')')].strip() or '元'
                             break
                 except Exception:
                     pass
 
-                detail_headers = ['序号', '名称', '规格型号', f'单价({unit_name})', '数量', '单位', '金额', '请购理由', '备注']
+                detail_headers = ['序号', '名称', '规格型号', f'单价({unit_name})', '数量', '单位', '金额', '请购理由',
+                                  '备注']
                 detail_data = [detail_headers]
 
                 calc_total_fallback = 0.0
@@ -2369,13 +2380,15 @@ class PDFGenerator:
                 detail_data.append(['总金额', '', '', '', '', '', total_amount_display, '', ''])
 
                 detail_tbl = Table(self.process_table_data_for_pdf(detail_data),
-                                   colWidths=[1.0 * cm, 2.5 * cm, 2.5 * cm, 1.5 * cm, 1.0 * cm, 1.0 * cm, 1.5 * cm, 3.5 * cm, 4.5 * cm])
+                                   colWidths=[1.0 * cm, 2.5 * cm, 2.5 * cm, 1.5 * cm, 1.0 * cm, 1.0 * cm, 1.5 * cm,
+                                              3.5 * cm, 4.5 * cm])
 
                 detail_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -2), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2417,6 +2430,7 @@ class PDFGenerator:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2444,13 +2458,13 @@ class PDFGenerator:
         try:
             # 兼容顶层或 data 嵌套结构
             detail = approval_detail.get('data', approval_detail)
-            
+
             # 注册中文字体
             self.register_chinese_fonts()
-            
+
             # 生成PDF文件名（使用新的命名规则和目录结构）
             output_filename = self._generate_pdf_filename("浙江采购申请", detail)
-            
+
             # 创建PDF文档 - 采用generate_pdf_report的页面设置
             doc = SimpleDocTemplate(
                 output_filename,
@@ -2461,32 +2475,33 @@ class PDFGenerator:
                 leftMargin=1 * cm
             )
             story = []
-            
+
             # 获取样式
             styles = getSampleStyleSheet()
-            
+
             # 1. 公司信息表头（浙江版本）
             story.append(self.build_header_block_zhejiang())
             story.append(Spacer(1, 5))  # 减少间距
-            
+
             # 2. 审批信息（审批编号和申请时间）
             # 实时获取申请人信息
             applicant_info = self.employee_manager.get_employee_info_realtime(detail.get('open_id', ''))
             applicant_name = applicant_info["name"]
             department_name = self.feishu_api.get_department_name(detail.get('department_id', ''))
             start_time_formatted = self.format_time_without_timezone(detail.get('start_time', ''))
-            
+
             story.append(self.build_approval_info_block(
                 detail.get('serial_number', 'N/A'),
                 start_time_formatted
             ))
             story.append(Spacer(1, 8))  # 减少间距
-            
+
             # 3. 申请人信息表格
             form_data = self.parse_form_data(detail.get('form', '[]'))
             category = form_data.get('采购类别', '未知')
-            delivery_time = form_data.get('期望交货时间', '').split('T')[0] if 'T' in form_data.get('期望交货时间', '') else '未知'
-            
+            delivery_time = form_data.get('期望交货时间', '').split('T')[0] if 'T' in form_data.get('期望交货时间',
+                                                                                                    '') else '未知'
+
             story.append(self.build_applicant_info_block(
                 applicant_name,
                 department_name,
@@ -2494,12 +2509,12 @@ class PDFGenerator:
                 delivery_time
             ))
             story.append(Spacer(1, 8))  # 减少间距
-            
+
             # 4. 费用明细表格（浙江版本 - 简化列）
             if '费用明细' in form_data and form_data['费用明细']:
                 # 从原始表单中获取汇总信息
                 summary_info = form_data.get('费用明细_summary', {})
-                
+
                 # 动态解析单价字段名与单位（如 单价(元)、单价(USD) 等）
                 price_key = '单价(元)'
                 unit_name = '元'
@@ -2509,40 +2524,41 @@ class PDFGenerator:
                     for k in first_row.keys():
                         if isinstance(k, str) and k.startswith('单价(') and k.endswith(')'):
                             price_key = k
-                            unit_name = k[k.find('(')+1:k.rfind(')')].strip() or '元'
+                            unit_name = k[k.find('(') + 1:k.rfind(')')].strip() or '元'
                             break
                 except Exception:
                     pass
-                
+
                 # 浙江采购申请表格列：序号、名称、规格型号、单价(元)、数量、单位、金额、请购理由、备注
-                detail_headers = ['序号', '名称', '规格型号', f'单价({unit_name})', '数量', '单位', '金额', '请购理由', '备注']
+                detail_headers = ['序号', '名称', '规格型号', f'单价({unit_name})', '数量', '单位', '金额', '请购理由',
+                                  '备注']
                 detail_data = [detail_headers]
-                
+
                 # 行数据直接使用接口返回的"单价"、"金额"，不再自行计算
                 calc_total_fallback = 0.0
                 for idx, item in enumerate(form_data['费用明细'], 1):
                     q_val = item.get('数量', '')
                     p_val = item.get(price_key, '')
                     t_val = item.get('金额', '')
-                    
+
                     # 尝试用于兜底统计
                     try:
                         calc_total_fallback += float(t_val)
                     except Exception:
                         pass
-                    
+
                     detail_data.append([
-                        str(idx), 
-                        item.get('名称', ''), 
+                        str(idx),
+                        item.get('名称', ''),
                         item.get('规格型号', ''),
-                        str(p_val), 
-                        str(q_val), 
-                        item.get('单位', ''), 
+                        str(p_val),
+                        str(q_val),
+                        item.get('单位', ''),
                         str(t_val),
-                        item.get('请购理由', ''), 
+                        item.get('请购理由', ''),
                         item.get('备注', '')
                     ])
-                
+
                 # 总金额优先从summary_info获取，其次用行金额求和兜底
                 total_amount_display = None
                 if summary_info.get('total_amount'):
@@ -2554,9 +2570,9 @@ class PDFGenerator:
                     total_amount_display = f"{calc_total_fallback:.2f}"
                 else:
                     total_amount_display = "0.00"
-                
+
                 detail_data.append(['总金额', '', '', '', '', '', total_amount_display, '', ''])
-                
+
                 detail_tbl = Table(self.process_table_data_for_pdf(detail_data),
                                    colWidths=[1.0 * cm,  # 序号
                                               2.5 * cm,  # 名称
@@ -2568,12 +2584,13 @@ class PDFGenerator:
                                               3.5 * cm,  # 请购理由
                                               4.5 * cm]  # 备注
                                    )  # 调整列宽，总宽度19cm
-                
+
                 detail_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # 垂直居中
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -2), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2588,24 +2605,24 @@ class PDFGenerator:
                 ]))
                 story.append(detail_tbl)
                 story.append(Spacer(1, 10))  # 减少间距
-            
+
             # 5. 审批进程（费用表格之后）
             timeline = detail.get("timeline", [])
             task_list = detail.get("task_list", [])
             if timeline:
                 # 格式化审批进程表格
                 timeline_table = self.format_timeline_table(timeline, task_list)
-                
+
                 # 处理签名图片
                 modified_timeline_data = []
                 timeline_headers = ['序号', '节点名称', '处理人', '处理结果', '处理时间']
                 modified_timeline_data.append(timeline_headers)
-                
+
                 for row in timeline_table:
                     processor_name = row[2]
                     # 通过姓名获取签名图片路径
                     signature_path = self.employee_manager.get_signature_image_path(processor_name)
-                    
+
                     if signature_path:
                         try:
                             signature_img = Image(signature_path, width=36, height=15)
@@ -2618,14 +2635,16 @@ class PDFGenerator:
                     else:
                         # 移除处理意见列（第4列）
                         modified_timeline_data.append(row[:4] + row[5:])
-                
+
                 # 创建单个审批进程表格
                 timeline_tbl = Table(self.process_table_data_for_pdf(modified_timeline_data),
-                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm, 7.5 * cm])  # 总宽度19cm，移除处理意见列后调整列宽
+                                     colWidths=[2.0 * cm, 3.0 * cm, 3.5 * cm, 3.0 * cm,
+                                                7.5 * cm])  # 总宽度19cm，移除处理意见列后调整列宽
                 timeline_tbl.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), "ChineseFont"),
                     ('FONTSIZE', (0, 0), (-1, 0), 7),  # 进一步减少字体大小
                     ('FONTSIZE', (0, 1), (-1, -1), 6),  # 进一步减少字体大小
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -2637,15 +2656,15 @@ class PDFGenerator:
                     ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
                 ]))
                 story.append(timeline_tbl)
-            
+
             # 生成PDF
             doc.build(story)
             print(f"浙江采购申请PDF报告已生成: {output_filename}")
-            
+
             # 自动发送并重命名
             final_filename = self._send_and_rename_pdf(output_filename, detail.get('open_id', ''))
             return final_filename
-            
+
         except Exception as e:
             print(f"生成浙江采购申请PDF失败: {e}")
             import traceback

@@ -164,18 +164,30 @@ class PDFGenerator:
         """注册中文字体"""
         try:
             font_paths = [
-                "/System/Library/Fonts/PingFang.ttc",  # macOS
-                "/System/Library/Fonts/STHeiti Light.ttc",  # macOS
-                "/System/Library/Fonts/STHeiti Medium.ttc",  # macOS
-                "/System/Library/Fonts/Hiragino Sans GB.ttc",  # macOS
-                "/Library/Fonts/Arial Unicode.ttf",  # macOS
-                "/usr/share/fonts/truetype/arphic/uming.ttc",  # Linux
-                "/usr/share/fonts/truetype/arphic/ukai.ttc",  # Linux
-                "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",  # Linux
-                "C:/Windows/Fonts/simsun.ttc",  # Windows
-                "C:/Windows/Fonts/simhei.ttf",  # Windows
-                "C:/Windows/Fonts/msyh.ttc",  # Windows
-                "C:/Windows/Fonts/simfang.ttf",  # Windows
+                # macOS
+                "/System/Library/Fonts/PingFang.ttc",
+                "/System/Library/Fonts/STHeiti Light.ttc",
+                "/System/Library/Fonts/STHeiti Medium.ttc",
+                "/System/Library/Fonts/Hiragino Sans GB.ttc",
+                "/Library/Fonts/Arial Unicode.ttf",
+                # Linux - 多种常见路径
+                "/usr/share/fonts/truetype/arphic/uming.ttc",
+                "/usr/share/fonts/truetype/arphic/ukai.ttc",
+                "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/google-noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/chinese/simsun.ttc",
+                "/usr/share/fonts/chinese/uming.ttc",
+                "/usr/share/fonts/chinese/ukai.ttc",
+                "/usr/local/share/fonts/wqy-zenhei/wqy-zenhei.ttc",
+                "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+                "/usr/share/fonts/truetype/arphic/wqy-zenhei.ttc",
+                # Windows
+                "C:/Windows/Fonts/simsun.ttc",
+                "C:/Windows/Fonts/simhei.ttf",
+                "C:/Windows/Fonts/msyh.ttc",
+                "C:/Windows/Fonts/simfang.ttf",
             ]
             
             # 添加当前目录下的字体文件

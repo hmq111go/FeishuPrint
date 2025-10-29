@@ -4,23 +4,37 @@
 当审批通过时自动生成包含签名图片的PDF报告
 支持员工映射和签名图片的实时获取
 """
-import json
+
+# ========== 必须在导入任何模块之前配置SSL ==========
 import os
+import ssl
+
+# 禁用SSL证书验证（必须在导入其他模块之前）
+ssl._create_unverified_context_ = ssl._create_unverified_context()
+ssl._create_default_https_context = lambda: ssl._create_unverified_context()
+
+# 设置环境变量禁用SSL验证
+os.environ['PYTHONHTTPSVERIFY'] = '0'
+os.environ['CURL_CA_BUNDLE'] = ''
+os.environ['REQUESTS_CA_BUNDLE'] = ''
+os.environ['HTTPX_VERIFY'] = 'false'
+os.environ['SSL_VERIFY'] = 'False'
+
+# ========== 现在可以导入其他模块 ==========
+import json
 import sys
 import time
 import logging
 import threading
-import ssl
+import certifi
 from typing import Dict, Any, Set, Optional
 from concurrent.futures import ThreadPoolExecutor
 
-# 禁用SSL证书验证（用于腾讯云等环境）
-ssl._create_default_https_context = ssl._create_unverified_context
+# 禁用urllib3的SSL验证警告
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# 禁用httpx的SSL验证（lark-oapi SDK使用httpx）
-import os
-os.environ['HTTPX_VERIFY'] = 'false'
-
+# 现在安全地导入lark SDK
 import lark_oapi as lark
 
 from feishu_api import FeishuAPI
@@ -446,4 +460,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # 再次确保SSL配置生效（防止某些特殊情况）
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
+    
     exit(main())

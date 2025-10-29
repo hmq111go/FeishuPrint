@@ -273,18 +273,25 @@ class PDFGenerator:
         except Exception:
             logo_cell = ""
 
-        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
+        # 创建公司信息表格：第一行两列仅放 Logo；文本各行合并两列，确保绝对居中
         company_data = [
-            [logo_cell, Paragraph("上海硼矩新材料科技有限公司", sty_big)],
-            ["", Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("采购申请单", sty_big)]
+            [logo_cell, ""],
+            [Paragraph("上海硼矩新材料科技有限公司", sty_big), ""],
+            [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("采购申请单", sty_big), ""]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
+            # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+            # 公司名与副标题、单据名行合并两列并绝对居中
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('SPAN', (0, 3), (1, 3)),
+            ('ALIGN', (0, 1), (1, 3), 'CENTER'),
+            ('VALIGN', (0, 1), (1, 3), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -314,18 +321,25 @@ class PDFGenerator:
         except Exception:
             logo_cell = ""
 
-        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
+        # 创建公司信息表格：第一行两列仅放 Logo；文本各行合并两列，确保绝对居中
         company_data = [
-            [logo_cell, Paragraph("浙江硼矩新材料科技有限公司", sty_big)],
-            ["", Paragraph("Zhejiang BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("采购申请单", sty_big)]
+            [logo_cell, ""],
+            [Paragraph("浙江硼矩新材料科技有限公司", sty_big), ""],
+            [Paragraph("Zhejiang BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("采购申请单", sty_big), ""]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
+            # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+            # 公司名与副标题、单据名行合并两列并绝对居中
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('SPAN', (0, 3), (1, 3)),
+            ('ALIGN', (0, 1), (1, 3), 'CENTER'),
+            ('VALIGN', (0, 1), (1, 3), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -401,18 +415,25 @@ class PDFGenerator:
         except Exception:
             logo_cell = ""
 
-        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
+        # 创建公司信息表格：第一行两列仅放 Logo；文本各行合并两列，确保绝对居中
         company_data = [
-            [logo_cell, Paragraph("上海硼矩新材料科技有限公司", sty_big)],
-            ["", Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("费用报销单", sty_big)]  # 修改为费用报销单
+            [logo_cell, ""],
+            [Paragraph("上海硼矩新材料科技有限公司", sty_big), ""],
+            [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("费用报销单", sty_big)]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
+            # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+            # 公司名与副标题、单据名行合并两列并绝对居中
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('SPAN', (0, 3), (1, 3)),
+            ('ALIGN', (0, 1), (1, 3), 'CENTER'),
+            ('VALIGN', (0, 1), (1, 3), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -439,17 +460,25 @@ class PDFGenerator:
         except Exception:
             logo_cell = ""
 
+        # 创建公司信息表格：第一行两列仅放 Logo；文本各行合并两列，确保绝对居中
         company_data = [
-            [logo_cell, Paragraph("浙江硼矩新材料科技有限公司", sty_big)],
-            ["", Paragraph("Zhejiang BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("费用报销单", sty_big)]
+            [logo_cell, ""],
+            [Paragraph("浙江硼矩新材料科技有限公司", sty_big), ""],
+            [Paragraph("Zhejiang BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("费用报销单", sty_big)]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
+            # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+            # 公司名与副标题、单据名行合并两列并绝对居中
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('SPAN', (0, 3), (1, 3)),
+            ('ALIGN', (0, 1), (1, 3), 'CENTER'),
+            ('VALIGN', (0, 1), (1, 3), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -476,17 +505,21 @@ class PDFGenerator:
         # except Exception:
         #     logo_cell = ""
 
+        # 知本没有logo，所有行合并两列并绝对居中
         company_data = [
-            [logo_cell, Paragraph("知本昕科（上海）人工智能科技有限公司", sty_big)],
-            ["", Paragraph("EpiScience Artificial Intelligence Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("采购申请单", sty_big)]
+            [Paragraph("知本昕科（上海）人工智能科技有限公司", sty_big), ""],
+            [Paragraph("EpiScience Artificial Intelligence Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("采购申请单", sty_big), ""]
         ]
         company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            # 所有行合并两列并绝对居中
+            ('SPAN', (0, 0), (1, 0)),
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('ALIGN', (0, 0), (1, 2), 'CENTER'),
+            ('VALIGN', (0, 0), (1, 2), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -504,17 +537,21 @@ class PDFGenerator:
 
         logo_cell = ""
 
+        # 知本没有logo，所有行合并两列并绝对居中
         company_data = [
-            [logo_cell, Paragraph("知本昕科（上海）人工智能科技有限公司", sty_big)],
-            ["", Paragraph("EpiScience Artificial Intelligence Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("费用报销单", sty_big)]
+            [Paragraph("知本昕科（上海）人工智能科技有限公司", sty_big), ""],
+            [Paragraph("EpiScience Artificial Intelligence Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("费用报销单", sty_big), ""]
         ]
         company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            # 所有行合并两列并绝对居中
+            ('SPAN', (0, 0), (1, 0)),
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('ALIGN', (0, 0), (1, 2), 'CENTER'),
+            ('VALIGN', (0, 0), (1, 2), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -532,17 +569,21 @@ class PDFGenerator:
 
         logo_cell = ""
 
+        # 知本没有logo，所有行合并两列并绝对居中
         company_data = [
-            [logo_cell, Paragraph("知本昕科（上海）人工智能科技有限公司", sty_big)],
-            ["", Paragraph("EpiScience Artificial Intelligence Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("固定资产验收单", sty_big)]
+            [Paragraph("知本昕科（上海）人工智能科技有限公司", sty_big), ""],
+            [Paragraph("EpiScience Artificial Intelligence Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("固定资产验收单", sty_big), ""]
         ]
         company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            # 所有行合并两列并绝对居中
+            ('SPAN', (0, 0), (1, 0)),
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('ALIGN', (0, 0), (1, 2), 'CENTER'),
+            ('VALIGN', (0, 0), (1, 2), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -1026,18 +1067,25 @@ class PDFGenerator:
         except Exception:
             logo_cell = ""
 
-        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
+        # 创建公司信息表格：第一行两列仅放 Logo；文本各行合并两列，确保绝对居中
         company_data = [
-            [logo_cell, Paragraph("上海硼矩新材料科技有限公司", sty_big)],
-            ["", Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("三方比价单", sty_big)]  # 修改为三方比价单
+            [logo_cell, ""],
+            [Paragraph("上海硼矩新材料科技有限公司", sty_big), ""],
+            [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("三方比价单", sty_big)]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
+            # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+            # 公司名与副标题、单据名行合并两列并绝对居中
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('SPAN', (0, 3), (1, 3)),
+            ('ALIGN', (0, 1), (1, 3), 'CENTER'),
+            ('VALIGN', (0, 1), (1, 3), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -1339,18 +1387,25 @@ class PDFGenerator:
         except Exception:
             logo_cell = ""
 
-        # 创建公司信息表格，第一行两列：[Logo, 公司中文名]；后续两行将中文左侧单元格留空
+        # 创建公司信息表格：第一行两列仅放 Logo；文本各行合并两列，确保绝对居中
         company_data = [
-            [logo_cell, Paragraph("上海硼矩新材料科技有限公司", sty_big)],
-            ["", Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml)],
-            ["", Paragraph("固定资产验收单", sty_big)]  # 修改为固定资产验收单
+            [logo_cell, ""],
+            [Paragraph("上海硼矩新材料科技有限公司", sty_big), ""],
+            [Paragraph("Shanghai BoronMatrix Advanced Materials Technology Co., Ltd", sty_sml), ""],
+            [Paragraph("固定资产验收单", sty_big)]
         ]
-        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.8 * cm])
+        company_tbl = Table(company_data, colWidths=[1.6 * cm, 17.4 * cm], rowHeights=[0.8 * cm, 0.6 * cm, 0.6 * cm, 0.8 * cm])
         company_tbl.setStyle(TableStyle([
+            # Logo 行保持左侧位置不变
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (1, 1), (1, 2), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+            # 公司名与副标题、单据名行合并两列并绝对居中
+            ('SPAN', (0, 1), (1, 1)),
+            ('SPAN', (0, 2), (1, 2)),
+            ('SPAN', (0, 3), (1, 3)),
+            ('ALIGN', (0, 1), (1, 3), 'CENTER'),
+            ('VALIGN', (0, 1), (1, 3), 'MIDDLE'),
+            # 内边距与边框
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
